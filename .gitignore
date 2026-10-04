@@ -1,0 +1,4 @@
+.DS_Store
+__pycache__/
+# lock.sh writes lock files here at runtime
+productivity/wave/locks/

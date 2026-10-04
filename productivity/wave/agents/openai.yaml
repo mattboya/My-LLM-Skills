@@ -1,0 +1,5 @@
+interface:
+  display_name: "Wave"
+  short_description: "Build WORK_QUEUE.md Ready items as one test-first parallel batch"
+policy:
+  allow_implicit_invocation: false

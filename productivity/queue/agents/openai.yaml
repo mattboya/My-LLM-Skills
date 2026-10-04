@@ -1,0 +1,5 @@
+interface:
+  display_name: "Queue"
+  short_description: "Spec work into WORK_QUEUE.md for /wave"
+policy:
+  allow_implicit_invocation: false
