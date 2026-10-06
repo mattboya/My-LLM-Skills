@@ -161,3 +161,5 @@ assert(src.split('const A = args\n').length === 2, 'const A = args appears exact
 assert((out5.flaky || []).filter(f => f.test === 'pill.spec.ts:119').length === 1 && (out5.flaky || []).some(f => f.source === 'final-gates' && f.test === 'other.spec.ts:7'), 'final-gates flakes join flaky once each, keyed to final-gates')
 assert(prompts['final-gates'].includes('A test-side flake (FLAKY TESTS below) is listed, not fixed.') && prompts['final-gates'].includes('counts as green'), 'the final gate keeper lists a test-side flake instead of fixing it')
 assert(optsOf['final-gates'].schema.required.includes('flaky'), 'the final-gates schema requires the flaky list')
+// Review fix: load on the shared machine is not a test-side cause by itself; slowness a user could hit is a product race.
+assert(!/In the TEST \([^)]*machine load/.test(prompts['lane-gates:U1']) && prompts['lane-gates:U1'].includes('a timeout tuned for an idle machine') && prompts['lane-gates:U1'].includes('slowness a user on a slow device or network could also cause'), 'the flaky rule does not file machine load under test-side causes; user-reachable slowness is a product race')
