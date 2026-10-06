@@ -3,9 +3,9 @@ export const meta = {
   description: 'Run a planned wave: test-first lanes with adversarial review, rolling cross-lane journeys, close open items, final gates',
   phases: [
     { title: 'Lanes', detail: 'each unit: test-first implement, adversarial review with revert-proofs, up to 2 fix rounds' },
-    { title: 'Journeys', detail: 'cross-lane reviews start as soon as the lanes they cover land; a skeptic re-reproduces every finding; high and medium are fixed, lows go to Later' },
+    { title: 'Journeys', detail: 'cross-lane reviews start as soon as the lanes they cover land; a skeptic re-reproduces every high and medium finding and those that hold are fixed; lows go to Later unchecked' },
     { title: 'Close open items', detail: 'whatever the fix-round caps left; each starts once the lanes have landed and its own journeys are done' },
-    { title: 'Final gates', detail: 'full gates on the quiet tree' },
+    { title: 'Final gates', detail: 'full gates on the quiet tree; a test-side flaky test is listed for the queue, not fixed' },
   ],
 }
 
@@ -121,11 +121,14 @@ const VERIFY = { type: 'object', properties: {
   remaining: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, detail: { type: 'string' }, severity: { type: 'string', enum: ['high', 'medium', 'low'] }, productCall: { type: 'boolean' } }, required: ['title', 'detail', 'severity', 'productCall'] } },
   revertProof: { type: 'string' }, gates: { type: 'array', items: GATE }, notes: { type: 'string' },
 }, required: ['resolved', 'remaining', 'revertProof', 'gates', 'notes'] }
+// A test that failed, then passed when re-run alone on the same code, with the timing problem in the test itself.
+const FLAKY = { type: 'object', properties: { test: { type: 'string' }, file: { type: 'string' }, runs: { type: 'string' }, whyTestNotProduct: { type: 'string' }, reproduction: { type: 'string' }, suggestedFix: { type: 'string' } }, required: ['test', 'file', 'runs', 'whyTestNotProduct', 'reproduction', 'suggestedFix'] }
+const LANE_GATES = { ...VERIFY, properties: { ...VERIFY.properties, flaky: { type: 'array', items: FLAKY } }, required: [...VERIFY.required, 'flaky'] }
 const GATES = { type: 'object', properties: {
   gates: { type: 'array', items: GATE }, allGreen: { type: 'boolean' },
   failuresFixed: { type: 'array', items: { type: 'object', properties: { what: { type: 'string' }, commit: { type: 'string' } }, required: ['what', 'commit'] } },
-  remainingFailures: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' },
-}, required: ['gates', 'allGreen', 'failuresFixed', 'remainingFailures', 'notes'] }
+  remainingFailures: { type: 'array', items: { type: 'string' } }, flaky: { type: 'array', items: FLAKY }, notes: { type: 'string' },
+}, required: ['gates', 'allGreen', 'failuresFixed', 'remainingFailures', 'flaky', 'notes'] }
 
 const UNIT = {}
 for (const u of A.units) UNIT[u.id] = { deps: [], implDeps: [], files: [], ...u }
@@ -170,6 +173,11 @@ function openItem(item) {
 // Lows and product calls never hold a fix loop open: lows become ## Later entries, product calls go on the batch page.
 const later = []
 const productCalls = []
+// Flaky tests never hold a run open: the gate keeper lists a test-side flake, the handoff puts it in Ready.
+const flaky = []
+function harvestFlaky(v, source) {
+  for (const f of (v && v.flaky) || []) if (!flaky.some(x => x.file === f.file && x.test === f.test)) flaky.push({ source, ...f })
+}
 const blocking = v => ((v && v.remaining) || []).filter(r => !r.productCall && r.severity !== 'low')
 const settled = v => !!v && (v.resolved || ((v.remaining || []).length > 0 && blocking(v).length === 0))
 function harvest(v, source) {
@@ -184,6 +192,7 @@ const REMAINING = `List in remaining everything still wrong or newly broken, eac
 // Verifiers after a fix run the targeted gates when the protocol has them; the final gates run the full suite once at the end.
 const VERIFY_GATES = P.reviewGates ? 'Run the REVIEW GATES below (targeted to what the fix touched; the final gates run the full suite at the end) in the snapshot and quote exit codes.' : 'Run the full gates in the snapshot and quote exit codes.'
 const VGATES = P.reviewGates || P.gates
+const FLAKY_RULE = `FLAKY TESTS: re-run each failing test on its own, on the same code, up to 3 times. If it passes on any re-run, it is flaky; decide where the timing problem lives. In the TEST (waiting for an animation or a re-render, test order, state shared between tests, a timeout tuned for an idle machine): list it in flaky with the runs ("failed 1 of 4"), why the problem is the test and not the product, a reproduction, and a suggested fix that never loosens an assertion; leave it out of remaining and do not fix it here. A builder fixes it from the queue on a quiet machine. In the PRODUCT (a person acting at the same speed would hit it too, or slowness a user on a slow device or network could also cause), or if you cannot tell: it is a real failure; report it like any other.${P.flaky ? `\nThis project's notes on flaky tests:\n${P.flaky}` : ''}`
 
 function ticketsOf(u) { return u.items.map(i => `${i} = ${T[i] || '(no ticket)'}`).join(', ') }
 function brief(u) {
@@ -258,7 +267,7 @@ verdict = fail only for real defects (mustFix). Return through StructuredOutput.
 }
 
 function laneGatesPrompt(ids, results) {
-  return `${CONTEXT}\n\nYou are the LANE GATE KEEPER for lane ${UNIT[ids[0]].lane} (units ${ids.join(', ')}). Each unit's review ran targeted tests only; you run the FULL gates once for the whole lane. Do not fix or commit anything.\n\nTHIS LANE'S COMMITS:\n${history(results)}\n\nMake a snapshot of HEAD and run every gate below, each redirected to a file, quoting exit codes and totals. For each failure, find its cause. A failure this lane's commits caused is a high item in remaining, with the failing test and the commit. A failure outside this lane's files is probably another lane mid-edit: re-run it once in a fresh snapshot of the then-HEAD and report it only if it still fails, naming the commit that broke it. resolved = true only if every gate is green, or every remaining failure is another lane's work in flight. ${REMAINING}\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
+  return `${CONTEXT}\n\nYou are the LANE GATE KEEPER for lane ${UNIT[ids[0]].lane} (units ${ids.join(', ')}). Each unit's review ran targeted tests only; you run the FULL gates once for the whole lane. Do not fix or commit anything.\n\nTHIS LANE'S COMMITS:\n${history(results)}\n\nMake a snapshot of HEAD and run every gate below, each redirected to a file, quoting exit codes and totals. For each failure, find its cause. A failure this lane's commits caused is a high item in remaining, with the failing test and the commit. A failure outside this lane's files is probably another lane mid-edit: re-run it once in a fresh snapshot of the then-HEAD and report it only if it still fails, naming the commit that broke it. resolved = true only if every gate is green, or every failure is another lane's work in flight or a test-side flake you listed in flaky. ${REMAINING}\n\n${FLAKY_RULE}\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
 }
 
 function fixPrompt(u, impl, review, round) {
@@ -339,9 +348,11 @@ async function runLane(ids) {
   }
   if (P.reviewGates && !LEAN) {
     const key = ids[0]
-    const ver = await run(`lane-gates:${key}`, laneGatesPrompt(ids, out), { phase: 'Lanes', schema: VERIFY })
+    const ver = await run(`lane-gates:${key}`, laneGatesPrompt(ids, out), { phase: 'Lanes', schema: LANE_GATES })
     harvest(ver, key)
-    if (!settled(ver)) {
+    harvestFlaky(ver, key)
+    const onlyFlaky = !!ver && blocking(ver).length === 0 && (ver.flaky || []).length > 0
+    if (!settled(ver) && !onlyFlaky) {
       const items = ids.flatMap(id => UNIT[id].items)
       openItem({ unit: key, items, tickets: items.map(i => T[i]), kind: 'lane-gates', mustFix: (ver ? blocking(ver) : [{ title: 'lane gates did not report', detail: 'the lane gate keeper returned nothing' }]).map(r => ({ title: r.title, file: '', detail: r.detail, howToVerify: '' })), files: ids.flatMap(id => UNIT[id].files) })
     }
@@ -380,7 +391,7 @@ ${COMMITS}
 ${QUOTE_RULE}`
 
 function jPrompt(j) {
-  return `${CONTEXT}\n\nYou are a CROSS-LANE ADVERSARIAL REVIEWER for journey ${j.key} "${j.title}". Each unit was already reviewed on its own; your job is the defects that appear where lanes COMPOSE, plus anything the per-unit reviews missed. In past waves this pass found 34-39 real defects each time. Find real user-visible or data-integrity defects, not style.\n\nFOCUS:\n${j.focus}\n\n${P.snapshot}\n\nREPRODUCE every finding (a throwaway test, a browser script in an isolated snapshot, or a precise trace through production code when a test is impractical). List what you checked and found fine.\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
+  return `${CONTEXT}\n\nYou are a CROSS-LANE ADVERSARIAL REVIEWER for journey ${j.key} "${j.title}". Each unit was already reviewed on its own; your job is the defects that appear where lanes COMPOSE, plus anything the per-unit reviews missed. In past waves this pass found 34-39 real defects each time. Find real user-visible or data-integrity defects, not style. Only your high and medium findings get an independent check and a fix in this run. A low goes straight to the queue as you wrote it, so grade honestly and give every finding a reproduction someone else can run.\n\nFOCUS:\n${j.focus}\n\n${P.snapshot}\n\nREPRODUCE every finding (a throwaway test, a browser script in an isolated snapshot, or a precise trace through production code when a test is impractical). List what you checked and found fine.\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
 }
 function skepticPrompt(f, j) {
   return `${CONTEXT}\n\nYou are a SKEPTICAL VERIFIER. A cross-lane reviewer (journey ${j.key} "${j.title}") reported the finding below. Try to REFUTE it: reproduce it yourself from scratch against current code. real = true only if you reproduced the harm yourself. Re-grade severity honestly. Default to real = false when you cannot reproduce it.\n\nFINDING:\n${JSON.stringify(f, null, 1)}\n\n${P.snapshot}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
@@ -397,13 +408,19 @@ async function runJourney(j) {
   log(`${j.key} ${j.title}: its lanes have landed, starting the journey review`)
   const found = await run(`journey:${j.key}`, jPrompt(j), { phase: 'Journeys', schema: FINDINGS })
   const findings = (found && found.findings) || []
-  const verdicts = await parallel(findings.map((f, i) => () => run(`skeptic:${j.key}#${i + 1}`, skepticPrompt(f, j), { phase: 'Journeys', schema: VERDICT }).then(v => ({ ...f, journey: j.key, verdict: v }))))
+  // Skeptics check only what the reviewer graded high or medium (2026-10-06: 0 of 37 lows re-graded up, 4 refuted;
+  // 10 of 17 mediums re-graded down). A low goes to later unchecked. Labels keep the finding's own number.
+  const numbered = findings.map((f, i) => ({ f, n: i + 1 }))
+  const unchecked = numbered.filter(x => x.f.severity === 'low').map(x => ({ ...x.f, journey: j.key, verdict: null }))
+  const verdicts = await parallel(numbered.filter(x => x.f.severity !== 'low').map(({ f, n }) => () => run(`skeptic:${j.key}#${n}`, skepticPrompt(f, j), { phase: 'Journeys', schema: VERDICT }).then(v => ({ ...f, journey: j.key, verdict: v }))))
   const judged = verdicts.filter(Boolean)
   const real = judged.filter(f => f.verdict && f.verdict.real)
   const confirmed = real.filter(f => f.verdict.severity !== 'low')
-  for (const f of real) if (f.verdict.severity === 'low') later.push({ source: j.key, title: f.title, severity: 'low', productCall: false, ticket: f.ticket, detail: `${f.reproduction}\nEvidence: ${f.evidence}\nFiles: ${(f.files || []).join(', ')}\nSuggested fix: ${f.suggestedFix}` })
-  log(`${j.key}: ${findings.length} findings, ${real.length} confirmed by a skeptic, ${confirmed.length} high or medium to fix now`)
-  const out = { journey: j.key, title: j.title, checkedAndFine: (found && found.checkedAndFine) || [], findings: judged, fixes: [], verifies: [] }
+  const laterEntry = f => ({ source: j.key, title: f.title, severity: 'low', productCall: false, ticket: f.ticket, detail: `${f.reproduction}\nEvidence: ${f.evidence}\nFiles: ${(f.files || []).join(', ')}\nSuggested fix: ${f.suggestedFix}` })
+  for (const f of real) if (f.verdict.severity === 'low') later.push(laterEntry(f))
+  for (const f of unchecked) later.push({ ...laterEntry(f), unconfirmed: true })
+  log(`${j.key}: ${findings.length} findings, ${unchecked.length} low queued unchecked, ${real.length} of ${judged.length} checked confirmed by a skeptic, ${confirmed.length} high or medium to fix now`)
+  const out = { journey: j.key, title: j.title, checkedAndFine: (found && found.checkedAndFine) || [], findings: judged.concat(unchecked), fixes: [], verifies: [] }
   if (!confirmed.length) return out
   const files = confirmed.flatMap(f => f.files || [])
   const owners = ownersOf(files).filter(id => !j.units.includes(id))
@@ -454,8 +471,9 @@ if (leftovers.length) log(`${leftovers.length} open items left after the review 
 const closeResults = await Promise.all(closing)
 
 phase('Final gates')
-const finalRepair = BASELINE ? 'Fix in-wave failures and regressions at their root with a documented commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.'
-const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+const finalRepair = (BASELINE ? 'Fix in-wave failures and regressions at their root with a documented commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.') + ' A test-side flake (FLAKY TESTS below) is listed, not fixed.'
+const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n5. ${FLAKY_RULE}\nA gate whose only failures are test-side flakes you listed counts as green; name each one in notes too.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+harvestFlaky(gates, 'final-gates')
 
 const gateFixes = (gates && gates.failuresFixed) || []
 const gateVerify = gateFixes.length && !LEAN ? await run('final-gates-verify', `${CONTEXT}\n\nYou are an INDEPENDENT VERIFIER. The final gate keeper fixed these failures with new commits:\n${JSON.stringify(gateFixes, null, 1)}\nFor each: read the commit, confirm a test was written first and seen failing for the right reason (its red-output file under ${SP}/tdd/), revert-proof it in a snapshot, and confirm the fix is at the root, not a weakened test. Then run the full gates in the snapshot and quote exit codes.\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nresolved = true only if every fix holds. Return through StructuredOutput.`, { phase: 'Final gates', schema: VERIFY }) : null
@@ -467,6 +485,7 @@ return {
   closeResults,
   later,
   productCalls,
+  flaky,
   gates,
   gateVerify,
 }

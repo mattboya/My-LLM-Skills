@@ -7,8 +7,10 @@ const reviewCount = {}
 const prompts = {}, started = {}, ended = {}, optsOf = {}
 const sev = p => p.includes('"severity": "low"') ? 'low' : p.includes('"severity": "medium"') ? 'medium' : 'high'
 const find = (t, severity, file) => ({ title: t, severity, ticket: 'T', files: [file], evidence: '', reproduction: 'r', suggestedFix: '' })
-const JOURNEY_FINDINGS = { J1: [find('J1-high', 'high', 'a.ts'), find('J1-low', 'low', 'a.ts')], J2: [find('J2-high', 'high', 'c.ts')], J3: [find('J3-low', 'low', 'b.ts')], J4: [find('J4-medium', 'medium', 'd.ts')], J5: [] }
+const JOURNEY_FINDINGS = { J1: [find('J1-low', 'low', 'a.ts'), find('J1-high', 'high', 'a.ts')], J2: [find('J2-high', 'high', 'c.ts'), find('J2-downgraded', 'medium', 'c.ts')], J3: [find('J3-low', 'low', 'b.ts')], J4: [find('J4-medium', 'medium', 'd.ts')], J5: [] }
 const rem = (title, severity, productCall) => ({ title, detail: 'd', severity, productCall })
+const flake = test => ({ test, file: 'e2e/pill.spec.ts', runs: 'failed 1 of 4', whyTestNotProduct: 'clicks while the page fades in', reproduction: 'r', suggestedFix: 'wait for the fade' })
+let flakyStub = false   // the flaky run: L2's lane gate is red only on a test-side flake
 let leanStub = false   // the lean run: U3's builder commits nothing, and final gates fix one failure
 async function agent(prompt, opts) {
   const l = opts.label; calls.push(l); prompts[l] = prompt; optsOf[l] = opts; started[l] = performance.now()
@@ -24,13 +26,15 @@ async function agent(prompt, opts) {
   }
   if (l.startsWith('fix:') || l.startsWith('jfix:') || l.startsWith('close:')) return { commits: [{ sha: 'fix' + l, ticket: 'T', subject: l }], fixed: [], notFixed: [], decisions: [], reviewPlanAdditions: [], summary: '' }
   if (l.startsWith('journey:')) return { findings: JOURNEY_FINDINGS[l.slice(8)], checkedAndFine: [] }
-  if (l.startsWith('skeptic:')) return { real: true, severity: sev(prompt), reproducedHow: '', reasoning: '' }
+  if (l.startsWith('skeptic:')) return { real: true, severity: prompt.includes('J2-downgraded') ? 'low' : sev(prompt), reproducedHow: '', reasoning: '' }
   // J1's first verify leaves only a low and a product call (settled); J4's never settles (a medium stays)
   if (l === 'jverify:J1#1') return { resolved: false, remaining: [rem('new low', 'low', false), rem('ask Ed', 'medium', true)], revertProof: '', gates: [], notes: '' }
   if (l.startsWith('jverify:J4#')) return { resolved: false, remaining: [rem('still broken', 'medium', false), rem('J4 side low', 'low', false)], revertProof: '', gates: [], notes: '' }
   if (l.startsWith('jverify:') || l.startsWith('close-verify:')) return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
   if (l === 'final-gates-verify') return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
+  if (flakyStub && l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], flaky: [flake('pill.spec.ts:119'), flake('other.spec.ts:7')], notes: '' }
   if (l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], notes: '' }
+  if (flakyStub && l === 'lane-gates:U3') return { resolved: false, remaining: [], flaky: [flake('pill.spec.ts:119')], revertProof: '', gates: [], notes: '' }
   if (l === 'lane-gates:U1') return { resolved: false, remaining: [rem('lane red', 'high', false), rem('lane low', 'low', false)], revertProof: '', gates: [], notes: '' }   // L1's full gates go red
   if (l.startsWith('lane-gates:')) return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
   throw new Error('unexpected label ' + l)
@@ -66,6 +70,12 @@ assert(!calls.includes('jfix:J1#2') && !out.leftovers.some(l => l.unit === 'J1')
 assert(out.later.some(l => l.title === 'new low') && out.productCalls.some(p => p.title === 'ask Ed'), 'a verifier\'s lows go to later, its product calls to productCalls')
 const j4 = out.leftovers.find(l => l.unit === 'J4')
 assert(j4 && j4.mustFix.length === 1 && j4.mustFix[0].title === 'still broken' && out.later.some(l => l.title === 'J4 side low'), 'an unsettled journey hands close-out only its blocking items')
+// 2026-10-06: skeptics check only what the reviewer graded high or medium; a reviewer's low goes to later unchecked.
+assert(calls.includes('skeptic:J1#2') && !calls.includes('skeptic:J1#1') && !calls.some(c => c.startsWith('skeptic:J3#')), 'skeptics check only high and medium findings, each under its own finding number')
+assert(out.later.some(l => l.title === 'J1-low' && l.unconfirmed === true) && out.later.some(l => l.title === 'J3-low' && l.unconfirmed === true), 'a reviewer-graded low goes to later marked unconfirmed')
+assert(calls.includes('skeptic:J2#2') && !prompts['jfix:J2#1'].includes('J2-downgraded') && out.later.some(l => l.title === 'J2-downgraded' && !l.unconfirmed), 'a medium the skeptic re-grades low goes to later as checked, not to the fixer')
+assert(!out.later.find(l => l.title === 'new low').unconfirmed, 'a verifier\'s lows are not marked unconfirmed')
+assert(out.journeys.find(x => x.journey === 'J1').findings.length === 2, 'the journey result still lists every finding, checked or not')
 // Close-out starts as soon as its item exists, once every lane has landed and every journey covering its unit is done.
 const laneEnd = Math.max(...Object.keys(ended).filter(l => /^(impl|review|fix|verify):/.test(l)).map(l => ended[l]))
 assert(started['close:J4:journey#1'] >= laneEnd, 'close-out waits for every lane to land')
@@ -107,6 +117,7 @@ assert(calls.filter(c => c === 'final-gates').length === 1 && calls[calls.length
 assert(idx('impl:U3') > idx('impl:U1') && idx('impl:U2') > idx('impl:U1'), 'lean: lane order and deps still hold')
 assert(out3.leftovers.some(l => l.unit === 'U3' && l.kind === 'no-commits') && out3.closeResults.length === 0, 'lean: a unit that built nothing is reported, not closed out')
 assert(out3.units.length === 3 && out3.journeys.length === 0, 'lean: returns every unit and no journeys')
+assert(prompts['final-gates'].includes('FLAKY TESTS') && optsOf['final-gates'].schema.required.includes('flaky'), 'lean: the only gate keeper gets the flaky rule and must report a flaky list')
 
 // 2026-10-03: slim agent types, per-unit effort, risk-tiered review, planner prototypes, targeted verifies.
 assert(optsOf['impl:U1'].agentType === undefined && optsOf['final-gates'].agentType === undefined, 'without agentTypes: agents use the default subagent type')
@@ -119,7 +130,7 @@ const checkers = calls.filter(c => !builders.includes(c))
 assert(builders.length >= 5 && builders.every(c => typeOf(c) === 'wave-builder'), 'agentTypes: builders and fixers run as the builder type (' + builders.filter(c => typeOf(c) !== 'wave-builder').join(',') + ')')
 assert(checkers.length >= 8 && checkers.every(c => typeOf(c) === 'wave-checker'), 'agentTypes: reviewers, verifiers, skeptics, journeys and gate keepers run as the checker type (' + checkers.filter(c => typeOf(c) !== 'wave-checker').join(',') + ')')
 assert(['impl:U3', 'review:U3', 'fix:U3#1', 'verify:U3#2'].every(l => optsOf[l] && optsOf[l].effort === 'max'), 'per-unit effort: the unit\'s builder, reviews and fixes run at it')
-assert(optsOf['impl:U1'].effort === undefined && optsOf['journey:J1'].effort === undefined && optsOf['skeptic:J1#1'].effort === undefined, 'other units and the journeys keep the session effort')
+assert(optsOf['impl:U1'].effort === undefined && optsOf['journey:J1'].effort === undefined && optsOf['skeptic:J1#2'].effort === undefined, 'other units and the journeys keep the session effort')
 assert(optsOf['lane-gates:U1'].effort === 'medium' && optsOf['lane-gates:U3'].effort === 'medium', 'lane gate keepers run at medium effort')
 assert(!calls.some(c => /^(review|verify|fix):U2\b/.test(c)), 'risk-tiered: a lean unit gets no per-unit review or fix')
 assert(['journey:J1', 'journey:J3', 'journey:J5', 'lane-gates:U1'].every(l => calls.includes(l)), 'risk-tiered: the journeys and lane gates covering a lean unit still run')
@@ -136,3 +147,19 @@ calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
 await body({ ...args, seeds: {}, baselineFailures: [{ gate: 'legacy suite', evidence: '/sp/baseline-red.txt', scope: 'outside-wave', heldItems: ['OLD'] }] }, agent, parallel, () => {}, () => {})
 assert(['impl:U1', 'review:U1', 'journey:J1', 'final-gates'].every(l => prompts[l].includes('/sp/baseline-red.txt') && prompts[l].includes('outside-wave')), 'auto baseline evidence and scope reach builders, reviewers, journeys and final gates')
 assert(prompts['final-gates'].includes('\nG\n') && prompts['final-gates'].includes('allGreen is false while any full gate is red') && !prompts['final-gates'].includes('4. Fix any failure'), 'known unrelated baseline failures remain visible without granting final gates permission to repair held scope')
+
+// 2026-10-06: a lane gate whose only red is a test-side flake opens no close-out; the flake is returned for the queue's Ready.
+calls.length = 0; for (const k in reviewCount) delete reviewCount[k]; flakyStub = true
+const out5 = await body({ ...args, seeds: {}, protocol: { ...args.protocol, reviewGates: 'RG-TARGETED', flaky: 'FLK-NOTES' } }, agent, parallel, () => {}, () => {})
+flakyStub = false
+assert(!calls.some(c => c.startsWith('close:U3:lane-gates')) && !out5.leftovers.some(l => l.unit === 'U3' && l.kind === 'lane-gates'), 'a lane gate whose only red is a test-side flake opens no close-out')
+assert((out5.flaky || []).some(f => f.source === 'U3' && f.test === 'pill.spec.ts:119' && f.whyTestNotProduct), 'the flake is returned in flaky, keyed to its lane, with the test-or-product call')
+assert(calls.includes('close:U1:lane-gates#1'), 'a real red lane gate in the same run is still closed out')
+assert(prompts['lane-gates:U1'].includes('FLAKY TESTS') && prompts['lane-gates:U1'].includes('or if you cannot tell: it is a real failure') && prompts['lane-gates:U1'].includes('FLK-NOTES'), 'lane gate keepers get the flaky rule, its safe default and the project\'s notes')
+assert(optsOf['lane-gates:U1'].schema.required.includes('flaky') && optsOf['lane-gates:U1'].schema.properties.flaky?.items.required.includes('whyTestNotProduct'), 'the lane-gates schema requires the flaky list and the test-or-product call')
+assert(src.split('const A = args\n').length === 2, 'const A = args appears exactly once (wrappers replace it)')
+assert((out5.flaky || []).filter(f => f.test === 'pill.spec.ts:119').length === 1 && (out5.flaky || []).some(f => f.source === 'final-gates' && f.test === 'other.spec.ts:7'), 'final-gates flakes join flaky once each, keyed to final-gates')
+assert(prompts['final-gates'].includes('A test-side flake (FLAKY TESTS below) is listed, not fixed.') && prompts['final-gates'].includes('counts as green'), 'the final gate keeper lists a test-side flake instead of fixing it')
+assert(optsOf['final-gates'].schema.required.includes('flaky'), 'the final-gates schema requires the flaky list')
+// Review fix: load on the shared machine is not a test-side cause by itself; slowness a user could hit is a product race.
+assert(!/In the TEST \([^)]*machine load/.test(prompts['lane-gates:U1']) && prompts['lane-gates:U1'].includes('a timeout tuned for an idle machine') && prompts['lane-gates:U1'].includes('slowness a user on a slow device or network could also cause'), 'the flaky rule does not file machine load under test-side causes; user-reachable slowness is a product race')
