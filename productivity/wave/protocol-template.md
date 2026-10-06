@@ -1,6 +1,6 @@
 ## Wave protocol
 
-<!-- /wave reads this section. The five "###" blocks below Setup are pasted into agent
+<!-- /wave reads this section. The "###" blocks below Setup are pasted into agent
 prompts as-is, with {REPO}, {SP} (the run's scratchpad), {BASE} and {HOT_FILES} filled in.
 Keep each block self-contained. Tighten it after every wave with what the wave taught. -->
 
@@ -40,3 +40,8 @@ ISOLATION (reviewers and verifiers): do not edit anything under {REPO}. Make a d
 ### Gates
 
 GATES, each redirected to a file with its exit code echoed (never piped): {{FULL TEST, TYPECHECK, LINT, FORMAT and E2E COMMANDS}}. Fix a failing test's premise, never weaken or delete the test.
+
+### Flaky tests
+
+<!-- Optional: delete this block until the project has notes. Gate keepers read it when a test fails at random. -->
+FLAKY TESTS IN THIS PROJECT: {{HOW TO REPRODUCE A FLAKE (e.g. the CI shard command at one worker), KNOWN CAUSES (page transitions, login rate limits, machine load), AND THE FIX PATTERN (wait for the transition; target something the UI can't cover). Never loosen an assertion.}}
