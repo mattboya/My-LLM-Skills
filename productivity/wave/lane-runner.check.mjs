@@ -9,6 +9,8 @@ const sev = p => p.includes('"severity": "low"') ? 'low' : p.includes('"severity
 const find = (t, severity, file) => ({ title: t, severity, ticket: 'T', files: [file], evidence: '', reproduction: 'r', suggestedFix: '' })
 const JOURNEY_FINDINGS = { J1: [find('J1-low', 'low', 'a.ts'), find('J1-high', 'high', 'a.ts')], J2: [find('J2-high', 'high', 'c.ts'), find('J2-downgraded', 'medium', 'c.ts')], J3: [find('J3-low', 'low', 'b.ts')], J4: [find('J4-medium', 'medium', 'd.ts')], J5: [] }
 const rem = (title, severity, productCall) => ({ title, detail: 'd', severity, productCall })
+const flake = test => ({ test, file: 'e2e/pill.spec.ts', runs: 'failed 1 of 4', whyTestNotProduct: 'clicks while the page fades in', reproduction: 'r', suggestedFix: 'wait for the fade' })
+let flakyStub = false   // the flaky run: L2's lane gate is red only on a test-side flake
 let leanStub = false   // the lean run: U3's builder commits nothing, and final gates fix one failure
 async function agent(prompt, opts) {
   const l = opts.label; calls.push(l); prompts[l] = prompt; optsOf[l] = opts; started[l] = performance.now()
@@ -31,6 +33,7 @@ async function agent(prompt, opts) {
   if (l.startsWith('jverify:') || l.startsWith('close-verify:')) return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
   if (l === 'final-gates-verify') return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
   if (l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], notes: '' }
+  if (flakyStub && l === 'lane-gates:U3') return { resolved: false, remaining: [], flaky: [flake('pill.spec.ts:119')], revertProof: '', gates: [], notes: '' }
   if (l === 'lane-gates:U1') return { resolved: false, remaining: [rem('lane red', 'high', false), rem('lane low', 'low', false)], revertProof: '', gates: [], notes: '' }   // L1's full gates go red
   if (l.startsWith('lane-gates:')) return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
   throw new Error('unexpected label ' + l)
@@ -142,3 +145,14 @@ calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
 await body({ ...args, seeds: {}, baselineFailures: [{ gate: 'legacy suite', evidence: '/sp/baseline-red.txt', scope: 'outside-wave', heldItems: ['OLD'] }] }, agent, parallel, () => {}, () => {})
 assert(['impl:U1', 'review:U1', 'journey:J1', 'final-gates'].every(l => prompts[l].includes('/sp/baseline-red.txt') && prompts[l].includes('outside-wave')), 'auto baseline evidence and scope reach builders, reviewers, journeys and final gates')
 assert(prompts['final-gates'].includes('\nG\n') && prompts['final-gates'].includes('allGreen is false while any full gate is red') && !prompts['final-gates'].includes('4. Fix any failure'), 'known unrelated baseline failures remain visible without granting final gates permission to repair held scope')
+
+// 2026-10-06: a lane gate whose only red is a test-side flake opens no close-out; the flake is returned for the queue's Ready.
+calls.length = 0; for (const k in reviewCount) delete reviewCount[k]; flakyStub = true
+const out5 = await body({ ...args, seeds: {}, protocol: { ...args.protocol, reviewGates: 'RG-TARGETED', flaky: 'FLK-NOTES' } }, agent, parallel, () => {}, () => {})
+flakyStub = false
+assert(!calls.some(c => c.startsWith('close:U3:lane-gates')) && !out5.leftovers.some(l => l.unit === 'U3' && l.kind === 'lane-gates'), 'a lane gate whose only red is a test-side flake opens no close-out')
+assert((out5.flaky || []).some(f => f.source === 'U3' && f.test === 'pill.spec.ts:119' && f.whyTestNotProduct), 'the flake is returned in flaky, keyed to its lane, with the test-or-product call')
+assert(calls.includes('close:U1:lane-gates#1'), 'a real red lane gate in the same run is still closed out')
+assert(prompts['lane-gates:U1'].includes('FLAKY TESTS') && prompts['lane-gates:U1'].includes('or if you cannot tell: it is a real failure') && prompts['lane-gates:U1'].includes('FLK-NOTES'), 'lane gate keepers get the flaky rule, its safe default and the project\'s notes')
+assert(optsOf['lane-gates:U1'].schema.required.includes('flaky') && optsOf['lane-gates:U1'].schema.properties.flaky?.items.required.includes('whyTestNotProduct'), 'the lane-gates schema requires the flaky list and the test-or-product call')
+assert(src.split('const A = args\n').length === 2, 'const A = args appears exactly once (wrappers replace it)')

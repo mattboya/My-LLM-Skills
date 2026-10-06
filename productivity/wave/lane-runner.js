@@ -121,6 +121,9 @@ const VERIFY = { type: 'object', properties: {
   remaining: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, detail: { type: 'string' }, severity: { type: 'string', enum: ['high', 'medium', 'low'] }, productCall: { type: 'boolean' } }, required: ['title', 'detail', 'severity', 'productCall'] } },
   revertProof: { type: 'string' }, gates: { type: 'array', items: GATE }, notes: { type: 'string' },
 }, required: ['resolved', 'remaining', 'revertProof', 'gates', 'notes'] }
+// A test that failed, then passed when re-run alone on the same code, with the timing problem in the test itself.
+const FLAKY = { type: 'object', properties: { test: { type: 'string' }, file: { type: 'string' }, runs: { type: 'string' }, whyTestNotProduct: { type: 'string' }, reproduction: { type: 'string' }, suggestedFix: { type: 'string' } }, required: ['test', 'file', 'runs', 'whyTestNotProduct', 'reproduction', 'suggestedFix'] }
+const LANE_GATES = { ...VERIFY, properties: { ...VERIFY.properties, flaky: { type: 'array', items: FLAKY } }, required: [...VERIFY.required, 'flaky'] }
 const GATES = { type: 'object', properties: {
   gates: { type: 'array', items: GATE }, allGreen: { type: 'boolean' },
   failuresFixed: { type: 'array', items: { type: 'object', properties: { what: { type: 'string' }, commit: { type: 'string' } }, required: ['what', 'commit'] } },
@@ -170,6 +173,11 @@ function openItem(item) {
 // Lows and product calls never hold a fix loop open: lows become ## Later entries, product calls go on the batch page.
 const later = []
 const productCalls = []
+// Flaky tests never hold a run open: the gate keeper lists a test-side flake, the handoff puts it in Ready.
+const flaky = []
+function harvestFlaky(v, source) {
+  for (const f of (v && v.flaky) || []) if (!flaky.some(x => x.file === f.file && x.test === f.test)) flaky.push({ source, ...f })
+}
 const blocking = v => ((v && v.remaining) || []).filter(r => !r.productCall && r.severity !== 'low')
 const settled = v => !!v && (v.resolved || ((v.remaining || []).length > 0 && blocking(v).length === 0))
 function harvest(v, source) {
@@ -184,6 +192,7 @@ const REMAINING = `List in remaining everything still wrong or newly broken, eac
 // Verifiers after a fix run the targeted gates when the protocol has them; the final gates run the full suite once at the end.
 const VERIFY_GATES = P.reviewGates ? 'Run the REVIEW GATES below (targeted to what the fix touched; the final gates run the full suite at the end) in the snapshot and quote exit codes.' : 'Run the full gates in the snapshot and quote exit codes.'
 const VGATES = P.reviewGates || P.gates
+const FLAKY_RULE = `FLAKY TESTS: re-run each failing test on its own, on the same code, up to 3 times. If it passes on any re-run, it is flaky; decide where the timing problem lives. In the TEST (waiting for an animation or a re-render, test order, state shared between tests, machine load): list it in flaky with the runs ("failed 1 of 4"), why the problem is the test and not the product, a reproduction, and a suggested fix that never loosens an assertion; leave it out of remaining and do not fix it here. A builder fixes it from the queue on a quiet machine. In the PRODUCT (a person acting at the same speed would hit it too), or if you cannot tell: it is a real failure; report it like any other.${P.flaky ? `\nThis project's notes on flaky tests:\n${P.flaky}` : ''}`
 
 function ticketsOf(u) { return u.items.map(i => `${i} = ${T[i] || '(no ticket)'}`).join(', ') }
 function brief(u) {
@@ -258,7 +267,7 @@ verdict = fail only for real defects (mustFix). Return through StructuredOutput.
 }
 
 function laneGatesPrompt(ids, results) {
-  return `${CONTEXT}\n\nYou are the LANE GATE KEEPER for lane ${UNIT[ids[0]].lane} (units ${ids.join(', ')}). Each unit's review ran targeted tests only; you run the FULL gates once for the whole lane. Do not fix or commit anything.\n\nTHIS LANE'S COMMITS:\n${history(results)}\n\nMake a snapshot of HEAD and run every gate below, each redirected to a file, quoting exit codes and totals. For each failure, find its cause. A failure this lane's commits caused is a high item in remaining, with the failing test and the commit. A failure outside this lane's files is probably another lane mid-edit: re-run it once in a fresh snapshot of the then-HEAD and report it only if it still fails, naming the commit that broke it. resolved = true only if every gate is green, or every remaining failure is another lane's work in flight. ${REMAINING}\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
+  return `${CONTEXT}\n\nYou are the LANE GATE KEEPER for lane ${UNIT[ids[0]].lane} (units ${ids.join(', ')}). Each unit's review ran targeted tests only; you run the FULL gates once for the whole lane. Do not fix or commit anything.\n\nTHIS LANE'S COMMITS:\n${history(results)}\n\nMake a snapshot of HEAD and run every gate below, each redirected to a file, quoting exit codes and totals. For each failure, find its cause. A failure this lane's commits caused is a high item in remaining, with the failing test and the commit. A failure outside this lane's files is probably another lane mid-edit: re-run it once in a fresh snapshot of the then-HEAD and report it only if it still fails, naming the commit that broke it. resolved = true only if every gate is green, or every failure is another lane's work in flight or a test-side flake you listed in flaky. ${REMAINING}\n\n${FLAKY_RULE}\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
 }
 
 function fixPrompt(u, impl, review, round) {
@@ -339,9 +348,11 @@ async function runLane(ids) {
   }
   if (P.reviewGates && !LEAN) {
     const key = ids[0]
-    const ver = await run(`lane-gates:${key}`, laneGatesPrompt(ids, out), { phase: 'Lanes', schema: VERIFY })
+    const ver = await run(`lane-gates:${key}`, laneGatesPrompt(ids, out), { phase: 'Lanes', schema: LANE_GATES })
     harvest(ver, key)
-    if (!settled(ver)) {
+    harvestFlaky(ver, key)
+    const onlyFlaky = !!ver && blocking(ver).length === 0 && (ver.flaky || []).length > 0
+    if (!settled(ver) && !onlyFlaky) {
       const items = ids.flatMap(id => UNIT[id].items)
       openItem({ unit: key, items, tickets: items.map(i => T[i]), kind: 'lane-gates', mustFix: (ver ? blocking(ver) : [{ title: 'lane gates did not report', detail: 'the lane gate keeper returned nothing' }]).map(r => ({ title: r.title, file: '', detail: r.detail, howToVerify: '' })), files: ids.flatMap(id => UNIT[id].files) })
     }
@@ -473,6 +484,7 @@ return {
   closeResults,
   later,
   productCalls,
+  flaky,
   gates,
   gateVerify,
 }
