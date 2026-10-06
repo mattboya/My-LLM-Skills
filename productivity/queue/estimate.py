@@ -33,7 +33,7 @@ Re-fit after new Results: add the run to CALIBRATION; selftest keeps every row w
 ponytail: lean_run_hours() (/wave lean: test-first builders, one final-gates run, no reviews) is fit to TWO runs
 (LEAN_CALIBRATION: 2026-10-02 3.9h for 16 items on a 6.7h chain; 2026-10-03 2.3h for 12 items on an 8.3h chain).
 The chain barely predicts a lean run (the planner splits lanes finer than file-sharing does), so the fit is mostly
-fixed cost: about 2.3-2.9h either way. Refit when a third lean run lands. Before that it was a model: in wave 2026-10-01 (2) building was about a quarter of each unit's lane time (builders 28 min
+fixed cost: about 2.3-2.9h either way. A third lean run (2026-10-05: 70 items, 7.7h, 92.8h chain) lands within 26% without a refit; its planning took 2.4h, so LEAN_PLAN_H under-reads big waves (planning scales with items) while LEAN_LANE_FACTOR over-reads a huge chain. Refit both once a fourth run shows the pattern. Before that it was a model: in wave 2026-10-01 (2) building was about a quarter of each unit's lane time (builders 28 min
 vs reviews 77 min a unit), so its lanes take ~0.10 of the chain, and the 3-6h back half becomes final
 gates + a smaller handoff (~1h). Calibrate it the same way once a lean run's Results say `Mode: lean`.
 """
@@ -63,6 +63,7 @@ CALIBRATION = [        # (wave, longest lane h by this script on its .queue.md s
 LEAN_CALIBRATION = [   # the same shape, for /wave lean runs
     ('2026-10-02 (lean)', 6.7, 16, 3.9),
     ('2026-10-03 (lean)', 8.33, 12, 2.3),
+    ('2026-10-05 (lean)', 92.83, 70, 7.7),  # 70 items, 108 units; planning 2.4h (26 checkers), builders 3.7h, gates 27 min, handoff ~40 min
 ]
 
 

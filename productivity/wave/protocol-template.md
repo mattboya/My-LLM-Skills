@@ -9,7 +9,7 @@ Keep each block self-contained. Tighten it after every wave with what the wave t
 - **Branch:** {{BRANCH}}. **Author:** {{GIT_AUTHOR or "any"}}.
 - **Isolation:** one shared checkout. No worktrees, no branches.
 - **Push:** never. The wave stops at the local branch; push only on the user's explicit OK for that push.
-- **Tickets:** {{TRACKER RULES — which project, assignee, sprint, lifecycle; or "none: the queue ID is the record"}}.
+- **Tickets:** {{TRACKER RULES — which project, assignee, sprint, lifecycle; or "none: the queue ID is the commit key, decoded in QUEUE_IDS.txt"}}. Queue IDs never go into the tracker, nor into commits when there is one.
 - **Helpers:** `~/.agents/skills/wave/helpers/{wave-commit.sh,lock.sh}`{{, plus any project snapshot helpers}}. Wave 0 copies them into `{SP}/wave/` and writes `{SP}/wave/wave.env` with `WAVE_REPO={REPO}`, `WAVE_BRANCH={{BRANCH}}`{{, WAVE_AUTHOR=...}}.
 - **Deploy notes to carry into the handoff:** {{restarts, migrations, anything a human must do before or after release}}.
 

@@ -27,6 +27,7 @@ export const meta = {
 //   units[].effort: 'max',  // this unit's builder, reviews and fixes run at this effort instead of the session's
 //   units[].proto: path,    // a planning checker's prototype patch: the builder lands it test-first instead of re-deriving the fix
 //   agentTypes: { builder: 'wave-builder', checker: 'wave-checker' },  // slim subagent types; absent → the default subagent
+//   baselineFailures: [{ gate, evidence, scope: 'in-wave' | 'outside-wave', heldItems: [...] }], // auto preflight evidence
 // }
 // Per-agent values (ports) derive from the label, never from call order, so a continuation reproduces prompts.
 
@@ -37,6 +38,7 @@ const P = A.protocol
 const T = A.tickets
 const SEEDS = A.seeds || {}
 const LEAN = !!A.lean
+const BASELINE = (A.baselineFailures || []).length ? `\n\nKNOWN BASELINE FAILURES (saved before this wave):\n${JSON.stringify(A.baselineFailures, null, 1)}\nRead the evidence files. Repair in-wave causes and regressions this wave introduces. An outside-wave failure is held scope, not a defect to attribute to this unit or permission to repair unrelated code. Still report its actual gate exit code and unresolved failure; never label a failing full suite green.` : ''
 
 function port(label) {
   let h = 0
@@ -65,7 +67,8 @@ Tests call production code (never restate the production predicate inside the te
 const DECIDE = `DECISIONS: whenever you must choose, decide and DOCUMENT it in the commit body and your report as the top two options and why you picked one. Do not stop to ask. If it truly needs a person, take the safe default, document it and add it to openQuestions. Mark product, design or wording decisions productFlavour=true: they go on the batch page for stakeholders.
 If an instruction is impossible or wrong in the current code, do the closest correct thing and record the reasoned disagreement in deviationsFromBrief. That is a finding, not a failure.`
 
-const COMMITS = `COMMIT MESSAGES (the user reads them): line 1 \`<TICKET>: <what changes for the user, plain words>\` (<= 72 chars). Blank line. Body: problem and root cause; what changed; the tests that prove it and that you saw them red first; decisions (top two options + why); what you deliberately left alone; pending human steps. Last line exactly: \`${A.coAuthor}\`. One commit per slice; key each commit to the ticket of the item it implements.
+const COMMITS = `COMMIT MESSAGES (the user reads them): line 1 \`<TICKET>: <what changes for the user, plain words>\` (<= 72 chars; a ticket of \`none\` means no key: line 1 is just the plain words). Blank line. Body: problem and root cause; what changed; the tests that prove it and that you saw them red first; decisions (top two options + why); what you deliberately left alone; pending human steps. Last line exactly: \`${A.coAuthor}\`. One commit per slice; key each commit to the ticket of the item it implements.
+LOCAL IDS: queue IDs (the "### " heading IDs in WORK_QUEUE.md, e.g. INC-12 S5) and unit IDs (U1a) exist only on this machine, and trackers show linked commits. A commit message names no queue or unit ID anywhere except its own <TICKET> on line 1. reviewPlan and reviewPlanAdditions are posted to tracker tickets: they name no queue or unit ID at all; say it in plain words.
 reviewPlan = numbered steps a human can follow in the running app: where to go, what to do, what they should see, what counts as a failure, regressions tests can't cover, anything deliberately left as-is. Say the code is on the local branch, unpushed, and name any prerequisite.`
 
 const DEC = { type: 'object', properties: { question: { type: 'string' }, optionA: { type: 'string' }, optionB: { type: 'string' }, picked: { type: 'string' }, why: { type: 'string' }, productFlavour: { type: 'boolean' } }, required: ['question', 'optionA', 'optionB', 'picked', 'why', 'productFlavour'] }
@@ -184,7 +187,7 @@ const VGATES = P.reviewGates || P.gates
 
 function ticketsOf(u) { return u.items.map(i => `${i} = ${T[i] || '(no ticket)'}`).join(', ') }
 function brief(u) {
-  return `UNIT ${u.id} (lane ${u.lane}): ${u.title}\nTickets: ${ticketsOf(u)}. Queue entries: ${u.items.map(i => `"### ${i} — ..."`).join(', ')} in ${REPO}/WORK_QUEUE.md (READ-ONLY).\nBRIEF AND BINDING CALLS:\n${u.brief}`
+  return `UNIT ${u.id} (lane ${u.lane}): ${u.title}\nTickets: ${ticketsOf(u)}. Queue entries: ${u.items.map(i => `"### ${i} — ..."`).join(', ')} in ${REPO}/WORK_QUEUE.md (READ-ONLY).\nBRIEF AND BINDING CALLS:\n${u.brief}${BASELINE}`
 }
 function protoNote(u) {
   return u.proto ? `\nPROTOTYPE: a planning checker already built and ran a candidate fix for this unit: ${u.proto} (a git diff against the plan's base, tests included). Land it rather than re-deriving it: apply only its test files first (git apply --include=<each test path>), run them and save YOUR red output, then apply the rest and go green. If it no longer applies cleanly, port it by hand. It is a head start, not the spec: the queue entry and the binding calls win, and every anchor still gets verified.\n` : ''
@@ -366,7 +369,7 @@ function ownersOf(files) {
   return Array.from(owners)
 }
 
-const CONTEXT = `CONTEXT: ${A.wave} is landing on the LOCAL branch (unpushed) in ${REPO} since ${A.base}; \`git -C ${REPO} log --oneline ${A.base}..HEAD\` lists every commit, and each message documents its change and decisions. Tickets: ${Object.keys(T).map(k => `${k}=${T[k]}`).join(', ')}. Plan and binding calls: ${A.waveDoc}. Specs: the matching "### <ID>" entries in ${REPO}/WORK_QUEUE.md (READ-ONLY). Other lanes may still be committing while you work.`
+const CONTEXT = `CONTEXT: ${A.wave} is landing on the LOCAL branch (unpushed) in ${REPO} since ${A.base}; \`git -C ${REPO} log --oneline ${A.base}..HEAD\` lists every commit, and each message documents its change and decisions. Tickets: ${Object.keys(T).map(k => `${k}=${T[k]}`).join(', ')}. Plan and binding calls: ${A.waveDoc}. Specs: the matching "### <ID>" entries in ${REPO}/WORK_QUEUE.md (READ-ONLY). Other lanes may still be committing while you work.${BASELINE}`
 const FIX_RULES = `RULES FOR WRITING IN THE SHARED CHECKOUT:
 ${P.shared}
 ${P.hot || ''}
@@ -451,7 +454,8 @@ if (leftovers.length) log(`${leftovers.length} open items left after the review 
 const closeResults = await Promise.all(closing)
 
 phase('Final gates')
-const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test's premise gets fixed, never deleted.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+const finalRepair = BASELINE ? 'Fix in-wave failures and regressions at their root with a documented commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.'
+const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
 
 const gateFixes = (gates && gates.failuresFixed) || []
 const gateVerify = gateFixes.length && !LEAN ? await run('final-gates-verify', `${CONTEXT}\n\nYou are an INDEPENDENT VERIFIER. The final gate keeper fixed these failures with new commits:\n${JSON.stringify(gateFixes, null, 1)}\nFor each: read the commit, confirm a test was written first and seen failing for the right reason (its red-output file under ${SP}/tdd/), revert-proof it in a snapshot, and confirm the fix is at the root, not a weakened test. Then run the full gates in the snapshot and quote exit codes.\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nresolved = true only if every fix holds. Return through StructuredOutput.`, { phase: 'Final gates', schema: VERIFY }) : null

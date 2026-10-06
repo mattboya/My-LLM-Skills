@@ -40,7 +40,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 ## Every run, in order
 
 **1. Find or create the queue.** `WORK_QUEUE.md` at the git root (match case-insensitively).
-- None → create it from `queue-template.md` (beside this file). Ask once, with AskUserQuestion, which tracker holds this project's tickets (JIRA project, Linear team…), offering "Not yet" → write `not set — ask the user before filing tickets`. Add `/WORK_QUEUE.md` to `.gitignore`: the user decided the queue is a private, local inbox. The safe-write rule in step 4 is what protects it; don't leave it tracked to "keep history".
+- None → create it from `queue-template.md` (beside this file). Ask once, with AskUserQuestion, which tracker holds this project's tickets (JIRA project, Linear team…), offering "None" → write `none: queue IDs are the commit keys, decoded in QUEUE_IDS.txt`, and "Not yet" → write `not set — ask the user before filing tickets`. Add `/WORK_QUEUE.md` to `.gitignore`: the user decided the queue is a private, local inbox. The safe-write rule in step 4 is what protects it; don't leave it tracked to "keep history".
 - Exists → follow its own entry template and field names (its ticket field may be called JIRA, Ticket…; file:line evidence goes in Now when it has no Evidence field). If its header doesn't mention the batch page, add the template's two paragraphs — "When a batch finishes…" and "`🔴 Decision open`…" — just above the `---` that ends the header, replacing any older `🔴 Decision open` paragraph. If it has no `## Awaiting answers` section, add the template's at the end of the file. If it has no `## Waiting` section, add the template's between the Ready and Later sections, replace the header's "Only `## Ready` gets worked…" paragraph with the template's, and add "or type **`/wave`**" to its "work the queue" line if missing.
 
 **2. Pull answers.** For each page listed under `## Awaiting answers`, read its answers with ArtifactData (`list`, collection `answers`, the page url) and the page itself with the Artifact tool (`read`). Each answers document is one person: `{Q1: {pick, label, note, at}, …}`. Each question card on the page carries `data-entry` (the queue entry), `data-built` (the option letter that was built; empty if nothing was built yet), its title and its option labels. Answers pasted into the message (the page's Copy format) count too.
@@ -89,8 +89,9 @@ Two to four options; add C and D only when they're real choices.
 Theme is one of Product, Design, Wording, Engineering, Cost, Legal/Privacy, or a new one when none fits.
 
 **4. Write the entry.**
-- ID = the area prefix this project already uses for that part of the product, plus the next number not used in the queue, any `*-wave*.md` beside it, or a batch page you're reading (shipped entries are deleted, so the queue alone reuses numbers). No prefix fits → start a short new one.
+- ID = the area prefix this project already uses for that part of the product, plus the next number not used in the queue, any `*-wave*.md` beside it, `QUEUE_IDS.txt` at the git root, or a batch page you're reading (shipped entries are deleted, so the queue alone reuses numbers). No prefix fits → start a short new one.
 - Append it at the end of its section. Ticket field `—`. Never create or edit tickets.
+- **Queue IDs stay on this machine.** Only this skill, `/wave` and this checkout know them. Never write one into a tracker (ticket, comment, field, link text), nor into a commit message when the queue's Tracker line names one: trackers show linked commits. With Tracker `none`, `/wave` makes the queue ID the commit key and adds its line to `QUEUE_IDS.txt`.
 - Safe write — the file has no history:
   1. `cp` the live file to the scratchpad as `orig`. (New queue: build it in the scratchpad, then check again that no queue has appeared before the `cp`.)
   2. Build `new` from it. Split on the heading lines `\n## Ready\n` / `\n## Waiting\n` / `\n## Later\n`; the header also contains those words.
@@ -272,4 +273,5 @@ Publish one page where the user, or anyone they share it with, decides each Wait
 | Split an existing entry or move it to Ready | Enrich it in place; sections are the user's call. |
 | Stop and ask a stakeholder question in chat | Record it on the entry; the batch page asks it. |
 | Publish a page from /queue | Pages come once per batch, from the queue header's rule. |
-| Next ID from the queue file alone | Wave docs hold shipped IDs; reusing one breaks references. |
+| Next ID from the queue file alone | Wave docs and `QUEUE_IDS.txt` hold shipped IDs; reusing one breaks references. |
+| Put a queue ID in a ticket so the two link up | Nobody else can resolve it. The entry's Ticket field holds the link, one way. |

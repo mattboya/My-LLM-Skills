@@ -131,3 +131,8 @@ assert(prompts['jverify:J1#1'].includes('RG-TARGETED') && !prompts['jverify:J1#1
 assert(cv4 && prompts[cv4].includes('RG-TARGETED') && !prompts[cv4].includes('\n\nG\n\n'), 'with reviewGates: close-out verifiers run the targeted gates')
 assert(prompts['final-gates'].includes('\nG\n') && !prompts['final-gates'].includes('RG-TARGETED'), 'the final gates still run the full gates')
 
+// Auto may continue independently verifiable work alongside a known unrelated baseline failure.
+calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
+await body({ ...args, seeds: {}, baselineFailures: [{ gate: 'legacy suite', evidence: '/sp/baseline-red.txt', scope: 'outside-wave', heldItems: ['OLD'] }] }, agent, parallel, () => {}, () => {})
+assert(['impl:U1', 'review:U1', 'journey:J1', 'final-gates'].every(l => prompts[l].includes('/sp/baseline-red.txt') && prompts[l].includes('outside-wave')), 'auto baseline evidence and scope reach builders, reviewers, journeys and final gates')
+assert(prompts['final-gates'].includes('\nG\n') && prompts['final-gates'].includes('allGreen is false while any full gate is red') && !prompts['final-gates'].includes('4. Fix any failure'), 'known unrelated baseline failures remain visible without granting final gates permission to repair held scope')
