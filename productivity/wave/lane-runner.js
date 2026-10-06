@@ -3,7 +3,7 @@ export const meta = {
   description: 'Run a planned wave: test-first lanes with adversarial review, rolling cross-lane journeys, close open items, final gates',
   phases: [
     { title: 'Lanes', detail: 'each unit: test-first implement, adversarial review with revert-proofs, up to 2 fix rounds' },
-    { title: 'Journeys', detail: 'cross-lane reviews start as soon as the lanes they cover land; a skeptic re-reproduces every finding; high and medium are fixed, lows go to Later' },
+    { title: 'Journeys', detail: 'cross-lane reviews start as soon as the lanes they cover land; a skeptic re-reproduces every high and medium finding and those that hold are fixed; lows go to Later unchecked' },
     { title: 'Close open items', detail: 'whatever the fix-round caps left; each starts once the lanes have landed and its own journeys are done' },
     { title: 'Final gates', detail: 'full gates on the quiet tree' },
   ],
@@ -380,7 +380,7 @@ ${COMMITS}
 ${QUOTE_RULE}`
 
 function jPrompt(j) {
-  return `${CONTEXT}\n\nYou are a CROSS-LANE ADVERSARIAL REVIEWER for journey ${j.key} "${j.title}". Each unit was already reviewed on its own; your job is the defects that appear where lanes COMPOSE, plus anything the per-unit reviews missed. In past waves this pass found 34-39 real defects each time. Find real user-visible or data-integrity defects, not style.\n\nFOCUS:\n${j.focus}\n\n${P.snapshot}\n\nREPRODUCE every finding (a throwaway test, a browser script in an isolated snapshot, or a precise trace through production code when a test is impractical). List what you checked and found fine.\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
+  return `${CONTEXT}\n\nYou are a CROSS-LANE ADVERSARIAL REVIEWER for journey ${j.key} "${j.title}". Each unit was already reviewed on its own; your job is the defects that appear where lanes COMPOSE, plus anything the per-unit reviews missed. In past waves this pass found 34-39 real defects each time. Find real user-visible or data-integrity defects, not style. Only your high and medium findings get an independent check and a fix in this run. A low goes straight to the queue as you wrote it, so grade honestly and give every finding a reproduction someone else can run.\n\nFOCUS:\n${j.focus}\n\n${P.snapshot}\n\nREPRODUCE every finding (a throwaway test, a browser script in an isolated snapshot, or a precise trace through production code when a test is impractical). List what you checked and found fine.\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
 }
 function skepticPrompt(f, j) {
   return `${CONTEXT}\n\nYou are a SKEPTICAL VERIFIER. A cross-lane reviewer (journey ${j.key} "${j.title}") reported the finding below. Try to REFUTE it: reproduce it yourself from scratch against current code. real = true only if you reproduced the harm yourself. Re-grade severity honestly. Default to real = false when you cannot reproduce it.\n\nFINDING:\n${JSON.stringify(f, null, 1)}\n\n${P.snapshot}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
@@ -397,13 +397,19 @@ async function runJourney(j) {
   log(`${j.key} ${j.title}: its lanes have landed, starting the journey review`)
   const found = await run(`journey:${j.key}`, jPrompt(j), { phase: 'Journeys', schema: FINDINGS })
   const findings = (found && found.findings) || []
-  const verdicts = await parallel(findings.map((f, i) => () => run(`skeptic:${j.key}#${i + 1}`, skepticPrompt(f, j), { phase: 'Journeys', schema: VERDICT }).then(v => ({ ...f, journey: j.key, verdict: v }))))
+  // Skeptics check only what the reviewer graded high or medium (2026-10-06: 0 of 37 lows re-graded up, 4 refuted;
+  // 10 of 17 mediums re-graded down). A low goes to later unchecked. Labels keep the finding's own number.
+  const numbered = findings.map((f, i) => ({ f, n: i + 1 }))
+  const unchecked = numbered.filter(x => x.f.severity === 'low').map(x => ({ ...x.f, journey: j.key, verdict: null }))
+  const verdicts = await parallel(numbered.filter(x => x.f.severity !== 'low').map(({ f, n }) => () => run(`skeptic:${j.key}#${n}`, skepticPrompt(f, j), { phase: 'Journeys', schema: VERDICT }).then(v => ({ ...f, journey: j.key, verdict: v }))))
   const judged = verdicts.filter(Boolean)
   const real = judged.filter(f => f.verdict && f.verdict.real)
   const confirmed = real.filter(f => f.verdict.severity !== 'low')
-  for (const f of real) if (f.verdict.severity === 'low') later.push({ source: j.key, title: f.title, severity: 'low', productCall: false, ticket: f.ticket, detail: `${f.reproduction}\nEvidence: ${f.evidence}\nFiles: ${(f.files || []).join(', ')}\nSuggested fix: ${f.suggestedFix}` })
-  log(`${j.key}: ${findings.length} findings, ${real.length} confirmed by a skeptic, ${confirmed.length} high or medium to fix now`)
-  const out = { journey: j.key, title: j.title, checkedAndFine: (found && found.checkedAndFine) || [], findings: judged, fixes: [], verifies: [] }
+  const laterEntry = f => ({ source: j.key, title: f.title, severity: 'low', productCall: false, ticket: f.ticket, detail: `${f.reproduction}\nEvidence: ${f.evidence}\nFiles: ${(f.files || []).join(', ')}\nSuggested fix: ${f.suggestedFix}` })
+  for (const f of real) if (f.verdict.severity === 'low') later.push(laterEntry(f))
+  for (const f of unchecked) later.push({ ...laterEntry(f), unconfirmed: true })
+  log(`${j.key}: ${findings.length} findings, ${unchecked.length} low queued unchecked, ${real.length} of ${judged.length} checked confirmed by a skeptic, ${confirmed.length} high or medium to fix now`)
+  const out = { journey: j.key, title: j.title, checkedAndFine: (found && found.checkedAndFine) || [], findings: judged.concat(unchecked), fixes: [], verifies: [] }
   if (!confirmed.length) return out
   const files = confirmed.flatMap(f => f.files || [])
   const owners = ownersOf(files).filter(id => !j.units.includes(id))

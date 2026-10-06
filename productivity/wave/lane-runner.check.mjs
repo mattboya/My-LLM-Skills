@@ -7,7 +7,7 @@ const reviewCount = {}
 const prompts = {}, started = {}, ended = {}, optsOf = {}
 const sev = p => p.includes('"severity": "low"') ? 'low' : p.includes('"severity": "medium"') ? 'medium' : 'high'
 const find = (t, severity, file) => ({ title: t, severity, ticket: 'T', files: [file], evidence: '', reproduction: 'r', suggestedFix: '' })
-const JOURNEY_FINDINGS = { J1: [find('J1-high', 'high', 'a.ts'), find('J1-low', 'low', 'a.ts')], J2: [find('J2-high', 'high', 'c.ts')], J3: [find('J3-low', 'low', 'b.ts')], J4: [find('J4-medium', 'medium', 'd.ts')], J5: [] }
+const JOURNEY_FINDINGS = { J1: [find('J1-low', 'low', 'a.ts'), find('J1-high', 'high', 'a.ts')], J2: [find('J2-high', 'high', 'c.ts'), find('J2-downgraded', 'medium', 'c.ts')], J3: [find('J3-low', 'low', 'b.ts')], J4: [find('J4-medium', 'medium', 'd.ts')], J5: [] }
 const rem = (title, severity, productCall) => ({ title, detail: 'd', severity, productCall })
 let leanStub = false   // the lean run: U3's builder commits nothing, and final gates fix one failure
 async function agent(prompt, opts) {
@@ -24,7 +24,7 @@ async function agent(prompt, opts) {
   }
   if (l.startsWith('fix:') || l.startsWith('jfix:') || l.startsWith('close:')) return { commits: [{ sha: 'fix' + l, ticket: 'T', subject: l }], fixed: [], notFixed: [], decisions: [], reviewPlanAdditions: [], summary: '' }
   if (l.startsWith('journey:')) return { findings: JOURNEY_FINDINGS[l.slice(8)], checkedAndFine: [] }
-  if (l.startsWith('skeptic:')) return { real: true, severity: sev(prompt), reproducedHow: '', reasoning: '' }
+  if (l.startsWith('skeptic:')) return { real: true, severity: prompt.includes('J2-downgraded') ? 'low' : sev(prompt), reproducedHow: '', reasoning: '' }
   // J1's first verify leaves only a low and a product call (settled); J4's never settles (a medium stays)
   if (l === 'jverify:J1#1') return { resolved: false, remaining: [rem('new low', 'low', false), rem('ask Ed', 'medium', true)], revertProof: '', gates: [], notes: '' }
   if (l.startsWith('jverify:J4#')) return { resolved: false, remaining: [rem('still broken', 'medium', false), rem('J4 side low', 'low', false)], revertProof: '', gates: [], notes: '' }
@@ -66,6 +66,12 @@ assert(!calls.includes('jfix:J1#2') && !out.leftovers.some(l => l.unit === 'J1')
 assert(out.later.some(l => l.title === 'new low') && out.productCalls.some(p => p.title === 'ask Ed'), 'a verifier\'s lows go to later, its product calls to productCalls')
 const j4 = out.leftovers.find(l => l.unit === 'J4')
 assert(j4 && j4.mustFix.length === 1 && j4.mustFix[0].title === 'still broken' && out.later.some(l => l.title === 'J4 side low'), 'an unsettled journey hands close-out only its blocking items')
+// 2026-10-06: skeptics check only what the reviewer graded high or medium; a reviewer's low goes to later unchecked.
+assert(calls.includes('skeptic:J1#2') && !calls.includes('skeptic:J1#1') && !calls.some(c => c.startsWith('skeptic:J3#')), 'skeptics check only high and medium findings, each under its own finding number')
+assert(out.later.some(l => l.title === 'J1-low' && l.unconfirmed === true) && out.later.some(l => l.title === 'J3-low' && l.unconfirmed === true), 'a reviewer-graded low goes to later marked unconfirmed')
+assert(calls.includes('skeptic:J2#2') && !prompts['jfix:J2#1'].includes('J2-downgraded') && out.later.some(l => l.title === 'J2-downgraded' && !l.unconfirmed), 'a medium the skeptic re-grades low goes to later as checked, not to the fixer')
+assert(!out.later.find(l => l.title === 'new low').unconfirmed, 'a verifier\'s lows are not marked unconfirmed')
+assert(out.journeys.find(x => x.journey === 'J1').findings.length === 2, 'the journey result still lists every finding, checked or not')
 // Close-out starts as soon as its item exists, once every lane has landed and every journey covering its unit is done.
 const laneEnd = Math.max(...Object.keys(ended).filter(l => /^(impl|review|fix|verify):/.test(l)).map(l => ended[l]))
 assert(started['close:J4:journey#1'] >= laneEnd, 'close-out waits for every lane to land')
@@ -119,7 +125,7 @@ const checkers = calls.filter(c => !builders.includes(c))
 assert(builders.length >= 5 && builders.every(c => typeOf(c) === 'wave-builder'), 'agentTypes: builders and fixers run as the builder type (' + builders.filter(c => typeOf(c) !== 'wave-builder').join(',') + ')')
 assert(checkers.length >= 8 && checkers.every(c => typeOf(c) === 'wave-checker'), 'agentTypes: reviewers, verifiers, skeptics, journeys and gate keepers run as the checker type (' + checkers.filter(c => typeOf(c) !== 'wave-checker').join(',') + ')')
 assert(['impl:U3', 'review:U3', 'fix:U3#1', 'verify:U3#2'].every(l => optsOf[l] && optsOf[l].effort === 'max'), 'per-unit effort: the unit\'s builder, reviews and fixes run at it')
-assert(optsOf['impl:U1'].effort === undefined && optsOf['journey:J1'].effort === undefined && optsOf['skeptic:J1#1'].effort === undefined, 'other units and the journeys keep the session effort')
+assert(optsOf['impl:U1'].effort === undefined && optsOf['journey:J1'].effort === undefined && optsOf['skeptic:J1#2'].effort === undefined, 'other units and the journeys keep the session effort')
 assert(optsOf['lane-gates:U1'].effort === 'medium' && optsOf['lane-gates:U3'].effort === 'medium', 'lane gate keepers run at medium effort')
 assert(!calls.some(c => /^(review|verify|fix):U2\b/.test(c)), 'risk-tiered: a lean unit gets no per-unit review or fix')
 assert(['journey:J1', 'journey:J3', 'journey:J5', 'lane-gates:U1'].every(l => calls.includes(l)), 'risk-tiered: the journeys and lane gates covering a lean unit still run')
