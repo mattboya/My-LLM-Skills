@@ -146,7 +146,7 @@ return { results, review }
   }
   await until(() => job(lanes.argsPath, 'final-gates'))
   bind(lanes.argsPath, 'final-gates')
-  report(lanes.argsPath, 'final-gates', 'final-gates', { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], notes: '' })
+  report(lanes.argsPath, 'final-gates', 'final-gates', { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], flaky: [], notes: '' })
   assert.equal((await host.done).code, 0, host.errors)
   const result = json(join(T, 'lanes.native.run', 'result.json'))
   assert.equal(result.units.length, 2)

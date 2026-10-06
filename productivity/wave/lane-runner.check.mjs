@@ -32,6 +32,7 @@ async function agent(prompt, opts) {
   if (l.startsWith('jverify:J4#')) return { resolved: false, remaining: [rem('still broken', 'medium', false), rem('J4 side low', 'low', false)], revertProof: '', gates: [], notes: '' }
   if (l.startsWith('jverify:') || l.startsWith('close-verify:')) return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
   if (l === 'final-gates-verify') return { resolved: true, remaining: [], revertProof: '', gates: [], notes: '' }
+  if (flakyStub && l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], flaky: [flake('pill.spec.ts:119'), flake('other.spec.ts:7')], notes: '' }
   if (l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [], remainingFailures: [], notes: '' }
   if (flakyStub && l === 'lane-gates:U3') return { resolved: false, remaining: [], flaky: [flake('pill.spec.ts:119')], revertProof: '', gates: [], notes: '' }
   if (l === 'lane-gates:U1') return { resolved: false, remaining: [rem('lane red', 'high', false), rem('lane low', 'low', false)], revertProof: '', gates: [], notes: '' }   // L1's full gates go red
@@ -116,6 +117,7 @@ assert(calls.filter(c => c === 'final-gates').length === 1 && calls[calls.length
 assert(idx('impl:U3') > idx('impl:U1') && idx('impl:U2') > idx('impl:U1'), 'lean: lane order and deps still hold')
 assert(out3.leftovers.some(l => l.unit === 'U3' && l.kind === 'no-commits') && out3.closeResults.length === 0, 'lean: a unit that built nothing is reported, not closed out')
 assert(out3.units.length === 3 && out3.journeys.length === 0, 'lean: returns every unit and no journeys')
+assert(prompts['final-gates'].includes('FLAKY TESTS') && optsOf['final-gates'].schema.required.includes('flaky'), 'lean: the only gate keeper gets the flaky rule and must report a flaky list')
 
 // 2026-10-03: slim agent types, per-unit effort, risk-tiered review, planner prototypes, targeted verifies.
 assert(optsOf['impl:U1'].agentType === undefined && optsOf['final-gates'].agentType === undefined, 'without agentTypes: agents use the default subagent type')
@@ -156,3 +158,6 @@ assert(calls.includes('close:U1:lane-gates#1'), 'a real red lane gate in the sam
 assert(prompts['lane-gates:U1'].includes('FLAKY TESTS') && prompts['lane-gates:U1'].includes('or if you cannot tell: it is a real failure') && prompts['lane-gates:U1'].includes('FLK-NOTES'), 'lane gate keepers get the flaky rule, its safe default and the project\'s notes')
 assert(optsOf['lane-gates:U1'].schema.required.includes('flaky') && optsOf['lane-gates:U1'].schema.properties.flaky?.items.required.includes('whyTestNotProduct'), 'the lane-gates schema requires the flaky list and the test-or-product call')
 assert(src.split('const A = args\n').length === 2, 'const A = args appears exactly once (wrappers replace it)')
+assert((out5.flaky || []).filter(f => f.test === 'pill.spec.ts:119').length === 1 && (out5.flaky || []).some(f => f.source === 'final-gates' && f.test === 'other.spec.ts:7'), 'final-gates flakes join flaky once each, keyed to final-gates')
+assert(prompts['final-gates'].includes('A test-side flake (FLAKY TESTS below) is listed, not fixed.') && prompts['final-gates'].includes('counts as green'), 'the final gate keeper lists a test-side flake instead of fixing it')
+assert(optsOf['final-gates'].schema.required.includes('flaky'), 'the final-gates schema requires the flaky list')

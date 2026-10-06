@@ -5,7 +5,7 @@ export const meta = {
     { title: 'Lanes', detail: 'each unit: test-first implement, adversarial review with revert-proofs, up to 2 fix rounds' },
     { title: 'Journeys', detail: 'cross-lane reviews start as soon as the lanes they cover land; a skeptic re-reproduces every high and medium finding and those that hold are fixed; lows go to Later unchecked' },
     { title: 'Close open items', detail: 'whatever the fix-round caps left; each starts once the lanes have landed and its own journeys are done' },
-    { title: 'Final gates', detail: 'full gates on the quiet tree' },
+    { title: 'Final gates', detail: 'full gates on the quiet tree; a test-side flaky test is listed for the queue, not fixed' },
   ],
 }
 
@@ -127,8 +127,8 @@ const LANE_GATES = { ...VERIFY, properties: { ...VERIFY.properties, flaky: { typ
 const GATES = { type: 'object', properties: {
   gates: { type: 'array', items: GATE }, allGreen: { type: 'boolean' },
   failuresFixed: { type: 'array', items: { type: 'object', properties: { what: { type: 'string' }, commit: { type: 'string' } }, required: ['what', 'commit'] } },
-  remainingFailures: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' },
-}, required: ['gates', 'allGreen', 'failuresFixed', 'remainingFailures', 'notes'] }
+  remainingFailures: { type: 'array', items: { type: 'string' } }, flaky: { type: 'array', items: FLAKY }, notes: { type: 'string' },
+}, required: ['gates', 'allGreen', 'failuresFixed', 'remainingFailures', 'flaky', 'notes'] }
 
 const UNIT = {}
 for (const u of A.units) UNIT[u.id] = { deps: [], implDeps: [], files: [], ...u }
@@ -471,8 +471,9 @@ if (leftovers.length) log(`${leftovers.length} open items left after the review 
 const closeResults = await Promise.all(closing)
 
 phase('Final gates')
-const finalRepair = BASELINE ? 'Fix in-wave failures and regressions at their root with a documented commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.'
-const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+const finalRepair = (BASELINE ? 'Fix in-wave failures and regressions at their root with a documented commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.') + ' A test-side flake (FLAKY TESTS below) is listed, not fixed.'
+const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n5. ${FLAKY_RULE}\nA gate whose only failures are test-side flakes you listed counts as green; name each one in notes too.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+harvestFlaky(gates, 'final-gates')
 
 const gateFixes = (gates && gates.failuresFixed) || []
 const gateVerify = gateFixes.length && !LEAN ? await run('final-gates-verify', `${CONTEXT}\n\nYou are an INDEPENDENT VERIFIER. The final gate keeper fixed these failures with new commits:\n${JSON.stringify(gateFixes, null, 1)}\nFor each: read the commit, confirm a test was written first and seen failing for the right reason (its red-output file under ${SP}/tdd/), revert-proof it in a snapshot, and confirm the fix is at the root, not a weakened test. Then run the full gates in the snapshot and quote exit codes.\n\n${P.snapshot}\n\n${P.gates}\n\n${QUOTE_RULE}\n\nresolved = true only if every fix holds. Return through StructuredOutput.`, { phase: 'Final gates', schema: VERIFY }) : null
