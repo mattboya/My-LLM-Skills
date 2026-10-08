@@ -8,6 +8,7 @@ Usage: estimate.py <path/to/WORK_QUEUE.md> [--json] [--with ID,ID]
        estimate.py <path/to/WORK_QUEUE.md> --fit HOURS [--lean] [--with ID,ID] [--without ID,ID]
                                                             (JSON: the most Ready items one run finishes in HOURS)
        estimate.py --selftest
+Add --codex to any of these to price weekly usage from Codex runs (CODEX_RUN_PCT) instead of Claude's.
 
 Reads every "### " entry under ## Ready, ## Waiting and ## Later (HTML comments ignored), then:
 - size: the entry's own "(S · risk ..)" / "(M ..)" / "(L ..)" markers, summed when an
@@ -36,6 +37,18 @@ The chain barely predicts a lean run (the planner splits lanes finer than file-s
 fixed cost: about 2.3-2.9h either way. A third lean run (2026-10-05: 70 items, 7.7h, 92.8h chain) lands within 26% without a refit; its planning took 2.4h, so LEAN_PLAN_H under-reads big waves (planning scales with items) while LEAN_LANE_FACTOR over-reads a huge chain. Refit both once a fourth run shows the pattern. Before that it was a model: in wave 2026-10-01 (2) building was about a quarter of each unit's lane time (builders 28 min
 vs reviews 77 min a unit), so its lanes take ~0.10 of the chain, and the 3-6h back half becomes final
 gates + a smaller handoff (~1h). Calibrate it the same way once a lean run's Results say `Mode: lean`.
+
+ponytail: weekly_pct() (the share of a week's usage limit one run takes) is a line through the three Claude runs
+in USAGE_CALIBRATION (dollars from wave-cost.py), so a run costs about $75 before its first item and $4 an item:
+planning, journeys and gates dominate. Points are DOLLARS_PER_WEEKLY_POINT, measured once on Matt's plan; another
+plan needs its own (read /usage before and after a run). Lean has no ledger yet: LEAN_USAGE is wave/SKILL.md's
+"about a third". Re-fit after new Results: add the run to USAGE_CALIBRATION; selftest keeps every row within 30%.
+
+ponytail: --codex prices from CODEX_RUN_PCT instead. Codex logs the weekly percent itself, and wave/helpers/
+codex-usage.py reads it for a run. The one data point so far is a paused lean run: 2026-10-07 (friendslop-game,
+Matt's ChatGPT Pro Lite plan) built 33 of its 57 units (37 items, so about 21 items' worth) for 54% of the week.
+That is about 2.5% an item lean, 7.2% full by LEAN_USAGE, with no fixed part (one run can't separate it). Claude's
+line would have said 2%: never borrow across providers. Re-fit once a finished Codex run's Results give its percent.
 """
 import json
 import re
@@ -51,6 +64,16 @@ LEAN_PLAN_H = 1.0      # lean, typing /wave lean to the first lane: the planning
 LEAN_LANE_FACTOR = 0.08  # lean lanes, as a share of the longest chain: 1h26m on a 6.7h chain (10-02), 53m on 8.3h (10-03)
 LEAN_TAIL_H = 1.25     # lean, after the last lane: final gates (11 min), the CI-faithful run, any gate fix, handoff (~25-60 min)
 LEAN_ITEMS_PER_H = 11  # ITEMS_PER_H with reviews removed (~2 units an item, 16 builders at once)
+DOLLARS_PER_WEEKLY_POINT = 29  # wave-cost.py's: measured 2026-10-03 on Opus 5.5 and Matt's plan
+RUN_DOLLARS = (75, 3.9)        # a full run's API-list dollars: fixed, then per item (fit to USAGE_CALIBRATION)
+LEAN_USAGE = 0.35              # a lean run's share of a full run's usage (modelled: wave/SKILL.md, no lean ledger yet)
+CODEX_RUN_PCT = (0, 7.2)       # (weekly % fixed, weekly % an item) for a full Codex run: one paused lean run (docstring)
+USAGE_CALIBRATION = [          # (wave, items, $ from its .cost.md ledger)
+    ('2026-10-03 fun-loop', 9, 121),   # its Results: weekly usage 91% -> 95%, the ledger said ~4 points
+    ('2026-10-08 jsonify', 4, 89),
+    ('2026-10-08 soulseek-auto', 10, 105),
+]
+CODEX = False                  # ponytail: set from --codex in main; a parameter through every caller if it ever matters
 MAX_LANES = 21         # the most lanes a wave has run at once (16 agents at a time)
 MARGIN = 0.8           # /queue fit plans to this share of the window (Matt, 2026-09-30)
 CALIBRATION = [        # (wave, longest lane h by this script on its .queue.md snapshot, items, actual h)
@@ -75,6 +98,18 @@ def run_hours(longest_lane_h, items):
 def lean_run_hours(longest_lane_h, items):
     """Typing /wave lean to handoff: planning, building the longest chain, final gates and handoff (one calibration run)."""
     return max(LEAN_PLAN_H + LEAN_LANE_FACTOR * longest_lane_h + LEAN_TAIL_H, items / LEAN_ITEMS_PER_H)
+
+
+def weekly_pct(items, lean=False):
+    """One run's share of the weekly usage limit, in percent."""
+    fixed, per = CODEX_RUN_PCT if CODEX else [d / DOLLARS_PER_WEEKLY_POINT for d in RUN_DOLLARS]
+    return (fixed + per * items) * (LEAN_USAGE if lean else 1)
+
+
+def usage_basis():
+    if CODEX:
+        return 'one paused lean Codex run on a Pro Lite plan (rough; another plan reads differently)'
+    return 'Claude runs, at $%d a weekly point (another plan reads differently)' % DOLLARS_PER_WEEKLY_POINT
 
 
 RANGE = (min(a / run_hours(h, n) for _, h, n, a in CALIBRATION), max(a / run_hours(h, n) for _, h, n, a in CALIBRATION))
@@ -155,7 +190,7 @@ def lanes_of(items):
 
 def plan(items):
     if not items:
-        return {'items': 0, 'lanes': 0, 'waves': [], 'hours': 0.0, 'lean_hours': 0.0}
+        return {'items': 0, 'lanes': 0, 'waves': [], 'hours': 0.0, 'lean_hours': 0.0, 'weekly_pct': 0.0, 'lean_weekly_pct': 0.0}
     lanes = lanes_of(items)
     waves = []
     for lane in lanes:  # longest first, so the long chains spread across waves evenly
@@ -170,9 +205,12 @@ def plan(items):
         out.append({'lanes': len(w), 'items': sum(len(l) for l in w), 'longest_lane_h': round(longest, 2),
                     'hours': round(run_hours(longest, sum(len(l) for l in w)), 2),
                     'lean_hours': round(lean_run_hours(longest, sum(len(l) for l in w)), 2),
+                    'weekly_pct': round(weekly_pct(sum(len(l) for l in w)), 1),
+                    'lean_weekly_pct': round(weekly_pct(sum(len(l) for l in w), lean=True), 1),
                     'critical_path': [x['id'] for x in max(w, key=lambda l: sum(x['minutes'] for x in l))]})
     return {'items': len(items), 'lanes': len(lanes), 'waves': out, 'hours': round(sum(w['hours'] for w in out), 2),
-            'lean_hours': round(sum(w['lean_hours'] for w in out), 2)}
+            'lean_hours': round(sum(w['lean_hours'] for w in out), 2),
+            'weekly_pct': round(sum(w['weekly_pct'] for w in out), 1), 'lean_weekly_pct': round(sum(w['lean_weekly_pct'] for w in out), 1)}
 
 
 def estimate(text, with_ids=()):
@@ -181,7 +219,7 @@ def estimate(text, with_ids=()):
     now = [i for i in agent_work if i['section'] == 'Ready' or i['id'] in with_ids]
     return {'items': items, 'ready_now': plan(now), 'everything': plan(agent_work),
             'misfiled': [i['id'] for i in items if i['section'] == 'Ready' and i['held']],
-            'human': [i['id'] for i in items if i['human']]}
+            'human': [i['id'] for i in items if i['human']], 'usage_basis': usage_basis()}
 
 
 def candidates(text):
@@ -448,6 +486,14 @@ def selftest():
     assert len(fit(many, 7.5)['picked']) == 15, fit(many, 7.5)      # 15 lanes still make one wave (MAX_LANES 21)
     po = profile(pq, only=['P-1', 'P-4'])
     assert [x['id'] for x in po['tasks']] == ['P-1', 'P-4'] and po['overall']['driven_by'] == ['P-4'], po
+    for name, n, dollars in USAGE_CALIBRATION:  # every measured run lands within 30% of what it really used
+        assert abs(weekly_pct(n) - dollars / DOLLARS_PER_WEEKLY_POINT) / (dollars / DOLLARS_PER_WEEKLY_POINT) <= 0.30, (name, weekly_pct(n))
+    assert 0 < e['ready_now']['lean_weekly_pct'] < e['ready_now']['weekly_pct'], e['ready_now']
+    assert plan([])['weekly_pct'] == 0 and 'Claude' in estimate('')['usage_basis']
+    global CODEX
+    CODEX = True  # Codex prices from its own run, never Claude's
+    assert round(weekly_pct(10), 1) == 72.0 and 'Codex' in estimate('')['usage_basis'], weekly_pct(10)
+    CODEX = False
     print('selftest ok')
 
 
@@ -459,6 +505,7 @@ if __name__ == '__main__':
         print(__doc__)
         sys.exit(2)
     text = open(sys.argv[1], encoding='utf-8').read()
+    CODEX = '--codex' in sys.argv
 
     def ids(flag):
         value = sys.argv[sys.argv.index(flag) + 1:][:1] if flag in sys.argv else []
@@ -485,8 +532,9 @@ if __name__ == '__main__':
         for i in result['items']:
             tag = 'HUMAN' if i['human'] else 'HELD ' if i['held'] else '     '
             print(f"{i['section']:7}  {i['id']:18} {i['minutes']:4}m  {tag} {len(i['files'])} files  {i['title'][:70]}")
+        print(f"\nweekly usage from {result['usage_basis']}")
         for k in ('ready_now', 'everything'):
             p = result[k]
-            print(f"\n{k}: {p['items']} items, {p['lanes']} lanes, {len(p['waves'])} wave(s), about {p['hours']}h full · about {p['lean_hours']}h lean")
+            print(f"\n{k}: {p['items']} items, {p['lanes']} lanes, {len(p['waves'])} wave(s), about {p['hours']}h full (~{p['weekly_pct']}% weekly) · about {p['lean_hours']}h lean (~{p['lean_weekly_pct']}% weekly)")
             for n, w in enumerate(p['waves'], 1):
                 print(f"  wave {n}: {w['items']} items in {w['lanes']} lanes, longest lane {w['longest_lane_h']}h, about {w['hours']}h full · {w['lean_hours']}h lean; critical path {' -> '.join(w['critical_path'])}")

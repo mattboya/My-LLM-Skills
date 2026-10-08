@@ -24,6 +24,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 - **Publishing a page** (Unblock, the batch page): there is no Artifact tool. Build the page from `batch-page-template.html` as the steps say, skip the publish and every ArtifactData call, and save it beside the queue as `YYYY-MM-DD-<unblock|batch>.page.html`. List that path under `## Awaiting answers`. Opened in a browser, the page runs in local mode: people pick, press **Copy my answers** and send the text back, and `$queue answers <pasted>` applies it. Tell the user to open the file and share it. Skip the share-level line in Unblock step 5.
 - **Pulling answers** (step 2): only pasted answers exist. Save them as step 2 says, under `work-queue-backups/claude-pages/<page file stem>/`. A page listed by claude.ai url can't be read from Codex: report it and leave it listed for a Claude session.
 - **Kick-off setting** (Promote step 7): keep the rubric's rows but name the effort only, as Codex's `model_reasoning_effort` on the model Codex is set to: high → `high`, extra or max → `xhigh`. The rubric and `estimate.py`'s hours were measured on Claude waves; say so in the reply.
+- **Weekly usage** (Promote step 6): pass `--codex` to every `estimate.py` call, so the percents are priced from Codex's own runs. A Codex plan's week holds far less wave work than Claude's.
 
 ## Input
 
@@ -204,7 +205,7 @@ Move the Later items that belong in the next wave up to Ready, then report what 
    - one line per promoted item: `ID — <reason> — adds about <h>h`;
    - `Not promoted:` the near-misses, one line each with why (spec incomplete, parked, too long);
    - `Belongs in Waiting:` any Later item that's really blocked;
-   - `Next wave: <n> items, about <h>h full · about <l>h lean (was <m>h).` From the script's `hours` and `lean_hours`. Lean is `/wave lean`: test-first builders and one final check, no reviews.
+   - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage) · about <l>h lean (~<lw>%) (was <m>h).` From the script's `hours`, `weekly_pct`, `lean_hours` and `lean_weekly_pct`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The percents are rough (a few measured runs, on Matt's plans): add the script's `usage_basis` in brackets after them.
    - the **Kick off with** block from step 7;
    - the **Could go faster** lines from step 8, when there are any.
 7. **Kick-off setting.** Every agent in a wave runs on the model the chat is set to when `/wave` starts, and on its effort unless the plan gives a unit its own (since 2026-10-03), so recommend the one setting that covers every Ready task below the max row (after the moves above). Max-row tasks don't raise it: /wave runs those units at max on their own, so name them in Needed by as "max per unit". Run `estimate.py <queue path> --profile` for a first pass per task, then read each Ready entry and correct the pass where it's wrong, with the reason. It flags words, not meaning, so a label fix on the income page is not "pay math". Rubric, cheapest first:
