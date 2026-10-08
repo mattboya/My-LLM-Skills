@@ -35,7 +35,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
 - **AskUserQuestion** → use this client's question UI for clarification and its supported approval flow for Go; recommended choices first. If unavailable, send one numbered message with recommended options and **Go** / **Go with changes** / **Stop** last, then wait for the reply. Auto mode retains its standing Go.
 - **Setting check** (go/no-go): name the Codex `model_reasoning_effort` that the queue skill's **In Codex** section maps to, on the model Codex is set to. The estimates, the review failure rates and the risk line in step 1.4 come from Claude waves: say so until a Codex wave's Results exist.
 - **Tickets:** if Codex has no tools for the protocol's tracker, say so at the go/no-go, file nothing, and use ticket `none` (Wave 0 step 4).
-- **Run cost** (step 4.4): `wave-cost.py` reads Claude transcripts only. Skip it, take the native agent count, IDs and hours from the run's jobs, journal and archived attempts, and say the cost wasn't measured. Codex has no memory step: put the unpushed state and deploy prerequisites in the wrap-up.
+- **Run cost** (step 4.4): `wave-cost.py` reads Claude transcripts only. Skip it, and run `python3 ~/.agents/skills/wave/helpers/codex-usage.py --since <go time> --until <handoff time>` instead: it reads the weekly percent Codex logs on every turn. Paste its line, with the item and unit counts, into Results, and add the run to `CODEX_RUN_PCT` in the queue's `estimate.py` (its docstring says how). Take the native agent count, IDs and hours from the run's jobs, journal and archived attempts. Codex has no memory step: put the unpushed state and deploy prerequisites in the wrap-up.
 
 ## Input
 

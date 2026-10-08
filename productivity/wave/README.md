@@ -51,6 +51,7 @@ Never pushes, never moves a ticket to Done.
 | `helpers/wave-commit.sh` | Commits only the named paths in a shared checkout (`git commit --only`), so one lane's work never rides along in another's commit. |
 | `helpers/lock.sh` | Hot-file locks for files several lanes edit. Takes all paths in one sorted call so lanes can't deadlock. |
 | `helpers/wave-cost.py` | Run-cost table from Claude session transcripts (Claude only). |
+| `helpers/codex-usage.py` | The share of the Codex weekly limit a run took, from Codex's session logs (Codex only). |
 | `codex-host.mjs` | Runs `lane-runner.js`, or any script written for the Workflow tool, under Codex: one `codex exec` per agent, with a journal for `--resume` and a stall watchdog. |
 | `codex-host.check.mjs` | Stub-codex check of the host. Run `node codex-host.check.mjs` after any host edit. |
 | `native-host.mjs` | Codex-only job bridge: runs the shared scheduler while the parent chat dispatches native subagents; validates and checkpoints their reports. |

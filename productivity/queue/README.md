@@ -44,7 +44,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 | `SKILL.md` | The skill itself: intake steps, safe-write rules, and the summary / fit / promote / unblock / answers procedures. |
 | `queue-template.md` | Starting `WORK_QUEUE.md` for a project that doesn't have one yet. |
 | `batch-page-template.html` | The stakeholder page published after each batch (and by `/queue unblock`): plain-language decision cards that save answers to the page. |
-| `estimate.py` | Sizes entries, groups them into parallel lanes by shared files, and estimates wave hours from past runs. Powers `summary`, `fit`, `promote` and the model/effort recommendation. `python3 estimate.py --selftest` checks it. |
+| `estimate.py` | Sizes entries, groups them into parallel lanes by shared files, and estimates wave hours and the share of weekly usage (Claude, or Codex with `--codex`) from past runs. Powers `summary`, `fit`, `promote` and the model/effort recommendation. `python3 estimate.py --selftest` checks it. |
 | `batch-page-companion.draft.md` | Draft of a separate "publish the batch page" skill. Not loaded (it isn't named `SKILL.md`). |
 | `agents/openai.yaml` | Codex metadata: runs only when you type `$queue`. |
 
