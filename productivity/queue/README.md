@@ -28,6 +28,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 /queue summary                    One line per item on what it's worth, and the time to finish. Changes nothing.
 /queue fit <7h | 11:30pm>         The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing.
 /queue fit <window> lean          The same for a /wave lean run (test-first builders, one final check, no reviews).
+/queue quick [3h]                 Pull small fixes that share nothing (single bullets from follow-up lists too) into Ready, and hand you the /wave lean line.
 /queue promote                    Move Later items that fit the next wave into Ready, report what moved, and the model and effort to kick off /wave with.
 /queue unblock                    Publish a page to decide the Waiting items; answers move them to Ready.
 /queue answers                    Apply answers saved on the queue's pages (every /queue also does this first).

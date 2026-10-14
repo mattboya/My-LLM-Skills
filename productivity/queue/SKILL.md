@@ -1,10 +1,11 @@
 ---
 name: queue
-description: Use when the user types /queue to add work to WORK_QUEUE.md or run one of its subcommands (summary, fit, promote, unblock, answers, help).
+description: Use when the user types /queue to add work to WORK_QUEUE.md or run one of its subcommands (summary, fit, quick, promote, unblock, answers, help).
 argument-hint: |-
   <what's wrong or wanted> [later]   spec it into the queue
   summary    one line per item, and the time to finish
   fit <7h | 11:30pm> [lean]   the most Ready items one /wave (or /wave lean) run finishes in that window
+  quick [3h]   pull small fixes that share nothing (bundle bullets too) into Ready for one /wave lean run
   promote    move Later items into Ready; recommends the model and effort
   unblock    a page to decide the Waiting items
   answers    apply answers saved on the queue's pages
@@ -35,6 +36,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 - `help` → reply with the **Help** block below, word for word, and do nothing else: no reading, no step 1, no writes.
 - `summary` → the **Summary** section below only. It reads; it writes nothing.
 - `fit <window> [lean]` → the **Fit** section below only. It reads; it writes nothing.
+- `quick [window]` → step 1, then the **Quick** section below.
 - `promote` → step 1, then the **Promote** section below.
 - `unblock` → step 1, then the **Unblock** section below.
 
@@ -114,6 +116,7 @@ Theme is one of Product, Design, Wording, Engineering, Cost, Legal/Privacy, or a
 /queue summary                    One line per item on what it's worth, and the time to finish. Changes nothing.
 /queue fit <7h | 11:30pm>         The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing.
 /queue fit <window> lean          The same for a /wave lean run (test-first builders, one final check, no reviews).
+/queue quick [3h | 11:30pm]       Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line.
 /queue promote                    Move Later items that fit the next wave into Ready, report what moved, and the model and effort to kick off /wave with.
 /queue unblock                    Publish a page to decide the Waiting items; answers move them to Ready.
 /queue answers                    Apply answers saved on the queue's pages (every /queue also does this first).
@@ -184,6 +187,43 @@ When `split_cost_hours` is 0 or less (all of Ready would need more than one run 
 Then one line per change or finding from step 3: `Added X: Y needs it first.`, `Dropped Y: its partner X doesn't fit.`, `Dropped Y: it waits on <what>.`, `Note: <ID> asks to ship with <IDs> in one wave.` Instead of the block:
 - `everything_fits` → one line: `Everything in Ready fits in <window> (about <h>h): plain /wave.`
 - nothing picked → two lines: `Nothing fits in <window> with the 80% margin: the shortest run is about <shortest_run_hours>h, because planning, cross-checks and handoff are most of any run.` and `Fits start at a window of about <shortest_run_hours ÷ 0.8, rounded up to the half hour>h (until about <now + that, as a clock time>). All of Ready as one run is about <left_hours>h → plain /wave.`
+
+## Quick (`/queue quick [window]`)
+
+Pull small fixes that share nothing with each other into Ready, so one `/wave lean` run knocks them out. Most small bugs sit as bullets inside follow-up bundles ("… follow-ups left by wave …", "what is left"), where `fit` and `promote` can't reach them one at a time; this splits them out. No one reviews a lean build, so it picks only what's safe to build unreviewed.
+
+1. **Window** (optional), read as Fit step 1 reads it. None → no time limit.
+2. **Candidates,** never from `## Waiting`:
+   - a standalone entry in Ready or Later whose Touches name four files or fewer (or none yet), with no `(M`, `(L` or `(XL` size marker;
+   - each bullet of a bundle entry in Ready or Later.
+
+   Skip: an entry or bundle on the `**In flight:**` line of a wave doc whose Status is `RUNNING`; a human-only entry, a dead stub (body marked lost), an entry with a `🔴 Decision open`, one a note says to hold; a bullet that asks for a call, a measurement or a person ("a product call", "ask …", "if it still reads as …", "only if the need shows", "consider", "try").
+
+   Order: real user-facing wrongs first (data saved wrong, wrong numbers, accessibility, broken flows, text on screen that looks broken), then the rest. Within each group, keep the file's order.
+3. **Spec each candidate from the code,** in that order, as step 3 does (read-only subagents in parallel, one per area, about ten at a time): does it still happen; Touches (real paths, test files included); Evidence (`file:line`); Done when (a test that goes red first).
+   - **Already fixed:** delete a bullet from its bundle and name the commit or `file:line` in the reply; a standalone entry is reported only.
+   - **Keep it only when** it still happens, touches two source files or fewer plus their tests, needs no database change, needs no other entry built first, needs no decision the code can't settle, and sits below the extra row of the rubric in Promote step 7. The extra and max rows (pay math, security, privacy, data, background jobs, what Linda says) are *risky lean*: they stay where they are for a reviewed `/wave`, and the reply lists them.
+4. **Share nothing.** Two picks may not share a file (tests included), a screen (the same page or panel), or behaviour (a value, setting, record, job or AI tool one changes and the other reads). Trace it: file lists miss behaviour. On a clash keep the one higher in step 2's order; the other waits for the next quick run.
+5. **Stop** at 21 picks (one wave's lanes) or when candidates run out.
+6. **Build the new queue** in the scratchpad (step 4's safe write, steps 1–3):
+   - a picked standalone Later entry moves, whole, to the end of Ready; a picked Ready entry stays where it is;
+   - a picked bullet becomes its own entry at the end of Ready, in the queue's entry template and pick order, with an ID as step 4 assigns it (above the highest number used). Its Notes carry the bundle's ticket references and `Quick win, picked YYYY-MM-DD; taken out of <bundle ID>.` Delete the bullet from its bundle; a bundle left empty is deleted and named in the reply;
+   - moved and new entries alike go to the end of Ready in pick order, and new IDs are given in that order; nothing else in Ready moves.
+7. **Time it** on that scratch copy: `python3 ~/.agents/skills/queue/estimate.py <scratch copy> --fit <hours, or 99 with no window> --lean --without <every Ready ID that isn't a pick>`. A pick missing from its `picked` list doesn't fit the window: take it back out of the scratch copy (a bullet returns to its bundle) and re-run until every pick is in `picked`. Nothing fits → reply as Fit's nothing-picked lines say, write nothing, and stop.
+8. **Write** it (step 4's safe write, steps 4–5: `cmp`, then `cp`), then run `estimate.py <queue path> --profile --only <picked IDs>` for the Lean line (Promote step 7), applied to the picks only.
+9. **Reply:**
+
+```
+**Quick wins:** <n> picked, about <h>h as one /wave lean run.
+Added to Ready:
+- `ID` — <the payoff sentence, as Summary writes it>   (taken out of <bundle> | moved from Later | already in Ready)
+Left behind: `<bundle or ID>` "<the fix in a few words>" (risky lean | needs a call | shares <what> with <pick> | too big | needs a database change | needs <ID> first | doesn't fit)
+Already fixed: `<bundle>` "<the fix in a few words>" (<commit or file:line>), deleted from the bundle.
+Paste: `/wave lean <ID>, <ID>, …`
+Set first: <the Lean line's model · effort>.
+```
+
+The paste line lists the picks in Ready order. Left behind names candidates only (step 2's skips aren't listed). When a wave doc says `RUNNING`, add `A wave is running: paste the line after it hands off.` Nothing picked → `No quick wins right now.` plus the Left behind lines.
 
 ## Promote (`/queue promote`)
 
@@ -271,7 +311,7 @@ Publish one page where the user, or anyone they share it with, decides each Wait
 |---|---|
 | Leave a new queue tracked in git so it has history | The user decided it's gitignored; safe-write covers the risk. |
 | Spec the adjacent bug you found alongside, or instead of, the reported one | Only the reported fix is queued; the rest is one line in the reply. |
-| Split an existing entry or move it to Ready | Enrich it in place; sections are the user's call. |
+| Split an existing entry or move it to Ready | Enrich it in place; sections are the user's call. `/queue quick` is the one exception: the user ran it to split bundles and move its picks. |
 | Stop and ask a stakeholder question in chat | Record it on the entry; the batch page asks it. |
 | Publish a page from /queue | Pages come once per batch, from the queue header's rule. |
 | Next ID from the queue file alone | Wave docs and `QUEUE_IDS.txt` hold shipped IDs; reusing one breaks references. |
