@@ -137,6 +137,7 @@ assert(['journey:J1', 'journey:J3', 'journey:J5', 'lane-gates:U1'].every(l => ca
 const u1r = out4.units.find(u => u.unit === 'U1'), u2r = out4.units.find(u => u.unit === 'U2')
 assert(u2r.lean === true && u2r.reviews.length === 0 && u1r.lean === false && u1r.reviews.length === 3, 'risk-tiered: results say which units skipped review')
 assert(prompts['impl:U1'].includes('/sp/proto/A.patch') && prompts['impl:U1'].includes('PROTOTYPE') && !prompts['impl:U3'].includes('PROTOTYPE'), 'a unit with a planner prototype gets it in its build prompt; others do not')
+assert(prompts['impl:U1'].includes('Simplified Technical English') && prompts['impl:U1'].includes('COMMIT MESSAGES'), 'builders get the STE writing rule with the commit rules')
 const cv4 = calls.find(c => c.startsWith('close-verify:'))
 assert(prompts['jverify:J1#1'].includes('RG-TARGETED') && !prompts['jverify:J1#1'].includes('\n\nG\n\n'), 'with reviewGates: journey verifiers run the targeted gates')
 assert(cv4 && prompts[cv4].includes('RG-TARGETED') && !prompts[cv4].includes('\n\nG\n\n'), 'with reviewGates: close-out verifiers run the targeted gates')

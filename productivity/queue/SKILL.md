@@ -110,21 +110,25 @@ Theme is one of Product, Design, Wording, Engineering, Cost, Legal/Privacy, or a
 
 ## Help (`/queue help`)
 
-```
-/queue <what's wrong or wanted>   Spec a fix or change from the code and add it to Ready.
-/queue <…> later                  Same, but file it under Later.
-/queue summary                    One line per item on what it's worth, and the time to finish. Changes nothing.
-/queue fit <7h | 11:30pm>         The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing.
-/queue fit <window> lean          The same for a /wave lean run (test-first builders, one final check, no reviews).
-/queue quick [3h | 11:30pm]       Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line.
-/queue promote                    Move Later items that fit the next wave into Ready, report what moved, and the model and effort to kick off /wave with.
-/queue unblock                    Publish a page to decide the Waiting items; answers move them to Ready.
-/queue answers                    Apply answers saved on the queue's pages (every /queue also does this first).
-/queue help                       This list.
-/wave                             Build everything in Ready: plan, one go/no-go, then the run (a separate skill).
-/wave ID, ID, …                   Build only those Ready items (the line /queue fit hands you).
-/wave auto                        The same, unattended: it takes the recommended answers and logs them for you.
-```
+Print this table as-is (a table, not a code block, so long lines wrap inside their column):
+
+| Command | What it does |
+|---|---|
+| `/queue <what's wrong or wanted>` | Spec a fix or change from the code and add it to Ready. |
+| `/queue <…> later` | Same, but file it under Later. |
+| `/queue summary` | One line per item on what it's worth, and the time to finish. Changes nothing. |
+| `/queue fit <7h \| 11:30pm>` | The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing. |
+| `/queue fit <window> lean` | The same for a /wave lean run (test-first builders, one final check, no reviews). |
+| `/queue quick [3h \| 11:30pm]` | Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line. |
+| `/queue promote` | Move Later items that fit the next wave into Ready, report what moved, and the model and effort to kick off /wave with. |
+| `/queue unblock` | Publish a page to decide the Waiting items; answers move them to Ready. |
+| `/queue answers` | Apply answers saved on the queue's pages (every /queue also does this first). |
+| `/queue answers <pasted>` | Apply answers someone copied off a page and sent you. |
+| `/queue help` | This list. |
+| `/wave` | Build everything in Ready: plan, one go/no-go, then the run (a separate skill). |
+| `/wave ID, ID, …` | Build only those Ready items (the line /queue fit hands you). |
+| `/wave auto` | The same, unattended: it takes the recommended answers and logs them for you. |
+| `/wave lean …` | Build only: test-first builders, one final check, no reviews. All /wave options: `/wave help`. |
 
 ## Summary (`/queue summary`)
 

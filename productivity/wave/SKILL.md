@@ -21,6 +21,8 @@ One command runs a batch of queued work, from plan to handoff, at ultracode qual
 
 **Queue IDs never reach the tracker.** Queue IDs (the `###` heading IDs, e.g. `INC-12 S5`) and unit IDs (`U1a`) exist only in this skill and on this machine. Never write one into a tracker: no ticket title, description, comment, field, label or link text, no review plan, no heads-up on someone else's ticket. Name the ticket key and say the rest in plain words, and put this rule in every prompt for an agent that writes to the tracker. Trackers show linked commits, so when the protocol's `Tickets:` line names a tracker, no commit message names a queue ID either. Only with no tracker (`Tickets: none…`) is the queue ID the commit's key, and then `QUEUE_IDS.txt` decodes it (Wave 0 step 4).
 
+**People read Simplified Technical English.** Read `~/.agents/skills/simplified-technical-english/SKILL.md` (not its references) before the go/no-go. Write every text a person reads in it: the go/no-go message, the wave doc, tickets, review plans and heads-ups, the batch page and the wrap-up. Code, identifiers, paths, ticket keys and quoted text stay as they are. Before you send the go/no-go and the wrap-up, pipe each draft through `python3 ~/.agents/skills/simplified-technical-english/scripts/ste_check.py --mode mixed --no-vocab` and correct what it finds. Lane agents get the short form in `lane-runner.js` (`STE`); paste that paragraph into every ticket clerk's prompt too.
+
 ## In Codex
 
 Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, these replace the Claude-only parts; everything else, the quality bar and TDD included, applies as written.
@@ -39,27 +41,25 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
 
 ## Input
 
-- `help` as the only word → print the block below verbatim, then stop. No queue read, no workflow, no edits.
+- `help` as the only word → print the block below as-is (markdown, not a code block, so long lines wrap inside their column), then stop. No queue read, no workflow, no edits.
 
-  ```
-  /wave                      every ## Ready item: plan, one go/no-go, then build
-  /wave ITEM-ID [ITEM-ID…]   only those items (IDs as the ### heading writes them, e.g. INC-12 S5)
-  /wave auto                 same as /wave, unattended: takes every recommended answer and its own Go
-  /wave auto ITEM-ID […]     auto mode for only those items
-  /wave lean [ITEM-ID…]      build only: test-first builders, one final check, no reviews (~a third of the usage)
-  /wave auto lean [ITEM-ID…] lean and unattended
-  /wave help                 this list
+  | Command | What it does |
+  |---|---|
+  | `/wave` | Every ## Ready item: plan, one go/no-go, then build. |
+  | `/wave ITEM-ID [ITEM-ID…]` | Only those items (IDs as the ### heading writes them, e.g. INC-12 S5). |
+  | `/wave auto` | Same as /wave, unattended: takes every recommended answer and its own Go. |
+  | `/wave auto ITEM-ID […]` | Auto mode for only those items. |
+  | `/wave lean [ITEM-ID…]` | Build only: test-first builders, one final check, no reviews (~a third of the usage). |
+  | `/wave auto lean [ITEM-ID…]` | Lean and unattended. |
+  | `/wave help` | This list. |
 
-  Automatic, no argument needed:
+  **Automatic, no argument needed:**
   - a wave doc at RUNNING resumes the interrupted run instead of planning fresh
   - a wave doc at PLANNED is picked up instead of re-planning
   - Ready empty → an unlock message: what each Waiting item waits on, with questions you can answer
   - pages under ## Awaiting answers are applied before planning
 
-  Model and effort come from the app setting when you type /wave; /queue promote recommends one.
-  The plan can run single units higher or lower, and units below the risky rows skip their own review.
-  Never pushes, never moves a ticket to Done.
-  ```
+  Model and effort come from the app setting when you type /wave; /queue promote recommends one. The plan can run single units higher or lower, and units below the risky rows skip their own review. Never pushes, never moves a ticket to Done.
 
 - `auto` as the first word → **auto mode** (below) for this whole run; the rest of `$ARGUMENTS` works as usual.
 - **Auto startup:** before planning, read and follow [references/auto-start.md](references/auto-start.md). Its preparation/recovery rules override the manual clean-tree, missing-protocol and baseline-stop rules below. Uncommitted source work never requires a user cleanup step in auto mode.
