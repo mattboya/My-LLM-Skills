@@ -130,7 +130,7 @@ Don't edit the runner per wave. A real improvement goes into the runner itself, 
 
 ## 4. Handoff
 
-1. Tickets move to review per the protocol, each with a numbered review plan. In a full run, a unit that skipped its own review (`lean` in the runner's results) opens its plan with: "Built without its own review (low risk): the cross-lane reviews and the full test suite covered it." Ticket clerks run as default-type agents at `effort: 'low'`; queue edits as `wave-planner`.
+1. Tickets move to review per the protocol, each with a numbered review plan. In a full run, a unit that skipped its own review (`lean` in the runner's results) opens its plan with: "Built without its own review (low risk): the cross-lane reviews and the full test suite covered it." Each ticket's technical notes also get the unit's engineering decisions (`productFlavour: false`), one line each: `question → pick, why`. Ticket clerks run as default-type agents at `effort: 'low'`; queue edits as `wave-planner`.
 2. **Queue:**
    - Back it up first.
    - Harvest before deleting: a constraint on later work moves onto the pending entry it affects; a leftover defect becomes a new `## Later` entry. The runner's `later` list (every low the journeys and verifiers found, each with how to reproduce it; fix loops don't chase lows) becomes `## Later` entries too, grouped by area, keyed to their ticket, reproduction kept.

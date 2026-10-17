@@ -18,7 +18,7 @@ async function agent(prompt, opts) {
   ended[l] = performance.now()
   if (leanStub && l === 'impl:U3') return { status: 'blocked', commits: [], filesTouched: [], summary: l, userFacingChange: '', testsAdded: [], decisions: [], deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: ['could not build'] }
   if (leanStub && l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [{ what: 'lint', commit: 'g1' }], remainingFailures: [], notes: '' }
-  if (l.startsWith('impl:')) return { status: 'complete', commits: [{ sha: 'abc' + l, ticket: 'T', subject: l }], filesTouched: [], summary: l, userFacingChange: '', testsAdded: [], decisions: [], deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: [] }
+  if (l.startsWith('impl:')) return { status: 'complete', commits: [{ sha: 'abc' + l, ticket: 'T', subject: l }], filesTouched: [], summary: l, userFacingChange: '', testsAdded: [], decisions: [{ question: 'Q-' + l, optionA: 'a', optionB: 'b', picked: 'a', why: 'W-' + l, productFlavour: false }],deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: [] }
   if (l.startsWith('review:') || l.startsWith('verify:')) {
     const u = l.split(':')[1].split('#')[0]; reviewCount[u] = (reviewCount[u] || 0) + 1
     const fail = (u === 'U1' && reviewCount[u] < 3) || u === 'U3'   // U1 fails twice then passes; U3 never passes
@@ -164,3 +164,19 @@ assert(prompts['final-gates'].includes('A test-side flake (FLAKY TESTS below) is
 assert(optsOf['final-gates'].schema.required.includes('flaky'), 'the final-gates schema requires the flaky list')
 // Review fix: load on the shared machine is not a test-side cause by itself; slowness a user could hit is a product race.
 assert(!/In the TEST \([^)]*machine load/.test(prompts['lane-gates:U1']) && prompts['lane-gates:U1'].includes('a timeout tuned for an idle machine') && prompts['lane-gates:U1'].includes('slowness a user on a slow device or network could also cause'), 'the flaky rule does not file machine load under test-side causes; user-reachable slowness is a product race')
+
+// 2026-10-16: short commits and comments. Decisions live in the report and reach later agents as a digest, not via commit bodies.
+calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
+await body({ ...args, seeds: {} }, agent, parallel, () => {}, () => {})
+const writers = ['impl:U1', 'fix:U1#1', 'jfix:J1#1', calls.find(c => c.startsWith('close:'))]
+assert(prompts['impl:U1'].includes('Most commits stop there') && !prompts['impl:U1'].includes('problem and root cause'), 'commits default to one line; no mandated body')
+assert(Object.values(prompts).every(p => !/commit body|documented commit/.test(p)), 'no prompt asks for a commit body or a documented commit')
+assert(writers.every(l => prompts[l].includes('CODE COMMENTS') && prompts[l].includes('If the project\'s CLAUDE.md or AGENTS.md sets')), 'builders and every fixer get the comment rule and the project-rules precedence')
+assert(prompts['impl:U1'].includes('Visual only: no new test') && prompts['review:U1'].includes('visual-only'), 'builders and reviewers get the visual-only test exception')
+assert(prompts['journey:J1'].includes('W-impl:U1') && prompts['journey:J1'].includes('Q-impl:U1') && !prompts['journey:J2'].includes('W-impl:U1') && !prompts['journey:J1'].includes('each message documents'), 'a journey gets its own units\' summaries and decisions, not a pointer to commit bodies')
+assert(prompts['final-gates'].includes('W-impl:U3') && prompts['final-gates'].includes('W-impl:U1'), 'the final gates get every unit\'s digest')
+calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
+await body({ ...args, seeds: {}, protocol: { ...args.protocol, visualNeedsTests: true } }, agent, parallel, () => {}, () => {})
+assert(!prompts['impl:U1'].includes('Visual only: no new test') && !prompts['review:U1'].includes('visual-only'), 'a project can turn the visual-only exception off')
+const skill = readFileSync(new URL('./SKILL.md', import.meta.url), 'utf8')
+assert(/technical notes[^\n]*productFlavour: false|productFlavour: false[^\n]*technical notes/.test(skill), 'handoff puts engineering decisions on the ticket\'s technical notes')

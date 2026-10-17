@@ -62,17 +62,22 @@ const TDD = `TEST-DRIVEN DEVELOPMENT (required for every slice; the reviewer fai
 1. RED: write the test first. Run it against the current code and SEE IT FAIL for the right reason (the behaviour is missing or wrong, not a typo, import or setup error). Save that output to ${SP}/tdd/<your label>-<slice>-red.txt.
 2. GREEN: write the smallest production change that makes it pass. Save the passing output to ${SP}/tdd/<your label>-<slice>-green.txt.
 3. REFACTOR with the tests green.
-Tests call production code (never restate the production predicate inside the test), must fail when the fix is reverted, and every new constant or branch has a real consumer (no dead code that looks wired). Report every test in testsAdded with sawRedFirst and its red-output file.`
+Tests call production code (never restate the production predicate inside the test), must fail when the fix is reverted, and every new constant or branch has a real consumer (no dead code that looks wired). Report every test in testsAdded with sawRedFirst and its red-output file.${P.visualNeedsTests ? '' : `
+Exception: a slice that changes only styling, copy or spacing (classes, CSS, text; no logic, conditions or data) needs no new test. Existing tests and gates still run. Say "Visual only: no new test" in your summary.`}`
 
-const DECIDE = `DECISIONS: whenever you must choose, decide and DOCUMENT it in the commit body and your report as the top two options and why you picked one. Do not stop to ask. If it truly needs a person, take the safe default, document it and add it to openQuestions. Mark product, design or wording decisions productFlavour=true: they go on the batch page for stakeholders.
+const PROJECT_RULES = `If the project's CLAUDE.md or AGENTS.md sets commit, comment or test rules, follow those where they differ from these.`
+
+const DECIDE = `DECISIONS: whenever you must choose, decide and record it in your report's decisions as the top two options and why you picked one, not in the commit. If the choice makes the code look wrong on purpose, leave a one-line comment there saying why. Do not stop to ask. If it truly needs a person, take the safe default, document it and add it to openQuestions. Mark product, design or wording decisions productFlavour=true: they go on the batch page for stakeholders.
 If an instruction is impossible or wrong in the current code, do the closest correct thing and record the reasoned disagreement in deviationsFromBrief. That is a finding, not a failure.`
 
 const STE = `PLAIN WRITING: write commit messages, reviewPlan steps and decisions in Simplified Technical English (ASD-STE100). Maximum 20 words in a step and 25 words in a description. One instruction in each sentence, in the imperative. Active voice. No contractions, no semicolons, no "-ing" verb forms. Use only "can", "must" and "will" as helping verbs. One name for one item. Noun clusters of maximum three words. No phrasal verbs ("remove", not "take out"). Code, identifiers, file paths, ticket keys and quoted text stay exactly as they are.`
 
 const COMMITS = `${STE}
-COMMIT MESSAGES (the user reads them): line 1 \`<TICKET>: <what changes for the user, plain words>\` (<= 72 chars; a ticket of \`none\` means no key: line 1 is just the plain words). Blank line. Body: problem and root cause; what changed; the tests that prove it and that you saw them red first; decisions (top two options + why); what you deliberately left alone; pending human steps. Last line exactly: \`${A.coAuthor}\`. One commit per slice; key each commit to the ticket of the item it implements.
+${PROJECT_RULES}
+COMMIT MESSAGES: line 1 \`<TICKET>: <what changes for the user, plain words>\` (<= 72 chars; a ticket of \`none\` means no key: line 1 is just the plain words). Most commits stop there. Add a body (a blank line, then at most 3 lines) only for what neither the diff nor a code comment says: a why a reader would get wrong, or a step a person must take at deploy (a migration, a worker restart, an env var). Never put these in a commit: test runs or red/green evidence, decisions and their options, what you left alone, how you worked. They go in your report. Last line exactly: \`${A.coAuthor}\`. One commit per slice; key each commit to the ticket of the item it implements.
 LOCAL IDS: queue IDs (the "### " heading IDs in WORK_QUEUE.md, e.g. INC-12 S5) and unit IDs (U1a) exist only on this machine, and trackers show linked commits. A commit message names no queue or unit ID anywhere except its own <TICKET> on line 1. reviewPlan and reviewPlanAdditions are posted to tracker tickets: they name no queue or unit ID at all; say it in plain words.
-reviewPlan = numbered steps a human can follow in the running app: where to go, what to do, what they should see, what counts as a failure, regressions tests can't cover, anything deliberately left as-is. Say the code is on the local branch, unpushed, and name any prerequisite.`
+reviewPlan = numbered steps a human can follow in the running app: where to go, what to do, what they should see, what counts as a failure, regressions tests can't cover, anything deliberately left as-is. Say the code is on the local branch, unpushed, and name any prerequisite.
+CODE COMMENTS: write one only for what the code cannot say: a non-obvious why, a gotcha, a known limit. 1-2 lines. Never narrate what the code does, restate a name, record history or ticket keys, or list examples. PHPDoc only for types the signature cannot express. Never label a comment with a tool, plugin or agent name; use the project's label if it has one. In lines you change, cut existing comments that only narrate. A why in a comment is not repeated in the commit.`
 
 const DEC = { type: 'object', properties: { question: { type: 'string' }, optionA: { type: 'string' }, optionB: { type: 'string' }, picked: { type: 'string' }, why: { type: 'string' }, productFlavour: { type: 'boolean' } }, required: ['question', 'optionA', 'optionB', 'picked', 'why', 'productFlavour'] }
 const COMMIT = { type: 'object', properties: { sha: { type: 'string' }, ticket: { type: 'string' }, subject: { type: 'string' } }, required: ['sha', 'ticket', 'subject'] }
@@ -163,6 +168,7 @@ if (problems.length) throw new Error('wave args invalid:\n- ' + problems.join('\
 function deferred() { let r; const p = new Promise(res => { r = res }); return { p, r } }
 const done = {}
 const implDone = {}
+const RESULT = {}   // unit id -> its result, for the digest later agents get
 for (const id of Object.keys(UNIT)) { done[id] = deferred(); implDone[id] = deferred() }
 const leftovers = []
 const jDone = {}
@@ -207,7 +213,8 @@ function protoNote(u) {
 function history(results) {
   const lines = results.filter(Boolean).map(r => {
     const commits = [].concat(r.impl ? r.impl.commits : [], ...(r.fixes || []).filter(Boolean).map(f => f.commits || []))
-    return `- ${r.unit} (${r.title}): ${r.impl ? r.impl.summary : 'implementer returned nothing'}\n  commits: ${commits.map(c => c.sha.slice(0, 10) + ' ' + c.subject).join(' | ')}`
+    const decisions = [].concat(r.impl ? r.impl.decisions || [] : [], ...(r.fixes || []).filter(Boolean).map(f => f.decisions || []))
+    return `- ${r.unit} (${r.title}): ${r.impl ? r.impl.summary : 'implementer returned nothing'}\n  commits: ${commits.map(c => c.sha.slice(0, 10) + ' ' + c.subject).join(' | ')}${decisions.map(d => `\n  decision: ${d.question} -> ${d.picked} (${d.why})`).join('')}`
   })
   return lines.length ? lines.join('\n') : '(none)'
 }
@@ -254,7 +261,7 @@ COMMITS UNDER REVIEW (local, unpushed): ${shas.join(', ')}
 IMPLEMENTER'S REPORT: ${JSON.stringify({ status: impl.status, summary: impl.summary, userFacingChange: impl.userFacingChange, testsAdded: impl.testsAdded, decisions: impl.decisions, deviationsFromBrief: impl.deviationsFromBrief, incomplete: impl.incomplete }, null, 1)}
 ${prior}
 DO ALL OF THIS:
-1. TDD EVIDENCE: for every test in testsAdded, and every fixer's fixed[].redOutputFile, read the red-output file under ${SP}/tdd/ and confirm it failed for the RIGHT reason before the fix. Missing or wrong-reason red output is a mustFix ("show the test failing against the pre-fix code"). Set tddEvidence.
+1. TDD EVIDENCE: for every test in testsAdded, and every fixer's fixed[].redOutputFile, read the red-output file under ${SP}/tdd/ and confirm it failed for the RIGHT reason before the fix. Missing or wrong-reason red output is a mustFix ("show the test failing against the pre-fix code").${P.visualNeedsTests ? '' : ' A slice marked visual-only with no tests passes when its diff has no logic; otherwise the missing test is a mustFix.'} Set tddEvidence.
 2. REVERT-PROOF: in your snapshot, revert each production fix, prove its test goes red, then restore.
 3. REPRODUCE the user-visible behaviour the entry describes, end to end, and trace each fix to what the user sees.
 4. Check the two shapes we keep writing: a test that restates the production predicate instead of calling it, and dead code that looks wired.
@@ -309,6 +316,7 @@ async function runUnit(u, laneResults) {
   const implLabel = `impl:${u.id}`
   const impl = await run(implLabel, implPrompt(u, history(laneResults), history(deps.concat(implDeps)), implLabel), { phase: phaseName, schema: IMPL, ...eff })
   const result = { unit: u.id, title: u.title, items: u.items, lane: u.lane, impl, reviews: [], fixes: [] }
+  RESULT[u.id] = result
   implDone[u.id].r(result)
   if (!impl || !impl.commits || impl.commits.length === 0) {
     log(`${u.id}: implementer produced no commits (${impl ? impl.status : 'null'})`)
@@ -383,7 +391,8 @@ function ownersOf(files) {
   return Array.from(owners)
 }
 
-const CONTEXT = `CONTEXT: ${A.wave} is landing on the LOCAL branch (unpushed) in ${REPO} since ${A.base}; \`git -C ${REPO} log --oneline ${A.base}..HEAD\` lists every commit, and each message documents its change and decisions. Tickets: ${Object.keys(T).map(k => `${k}=${T[k]}`).join(', ')}. Plan and binding calls: ${A.waveDoc}. Specs: the matching "### <ID>" entries in ${REPO}/WORK_QUEUE.md (READ-ONLY). Other lanes may still be committing while you work.${BASELINE}`
+const CONTEXT = `CONTEXT: ${A.wave} is landing on the LOCAL branch (unpushed) in ${REPO} since ${A.base}; \`git -C ${REPO} log --oneline ${A.base}..HEAD\` lists every commit. Tickets: ${Object.keys(T).map(k => `${k}=${T[k]}`).join(', ')}. Plan and binding calls: ${A.waveDoc}. Specs: the matching "### <ID>" entries in ${REPO}/WORK_QUEUE.md (READ-ONLY). Other lanes may still be committing while you work.${BASELINE}`
+const context = ids => `${CONTEXT}\n\nWHAT THE UNITS DID (builders' summaries and decisions; a deliberate choice here is not a defect):\n${history(ids.map(id => RESULT[id]))}`
 const FIX_RULES = `RULES FOR WRITING IN THE SHARED CHECKOUT:
 ${P.shared}
 ${P.hot || ''}
@@ -394,13 +403,13 @@ ${COMMITS}
 ${QUOTE_RULE}`
 
 function jPrompt(j) {
-  return `${CONTEXT}\n\nYou are a CROSS-LANE ADVERSARIAL REVIEWER for journey ${j.key} "${j.title}". Each unit was already reviewed on its own; your job is the defects that appear where lanes COMPOSE, plus anything the per-unit reviews missed. In past waves this pass found 34-39 real defects each time. Find real user-visible or data-integrity defects, not style. Only your high and medium findings get an independent check and a fix in this run. A low goes straight to the queue as you wrote it, so grade honestly and give every finding a reproduction someone else can run.\n\nFOCUS:\n${j.focus}\n\n${P.snapshot}\n\nREPRODUCE every finding (a throwaway test, a browser script in an isolated snapshot, or a precise trace through production code when a test is impractical). List what you checked and found fine.\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
+  return `${context(j.units)}\n\nYou are a CROSS-LANE ADVERSARIAL REVIEWER for journey ${j.key} "${j.title}". Each unit was already reviewed on its own; your job is the defects that appear where lanes COMPOSE, plus anything the per-unit reviews missed. In past waves this pass found 34-39 real defects each time. Find real user-visible or data-integrity defects, not style. Only your high and medium findings get an independent check and a fix in this run. A low goes straight to the queue as you wrote it, so grade honestly and give every finding a reproduction someone else can run.\n\nFOCUS:\n${j.focus}\n\n${P.snapshot}\n\nREPRODUCE every finding (a throwaway test, a browser script in an isolated snapshot, or a precise trace through production code when a test is impractical). List what you checked and found fine.\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
 }
 function skepticPrompt(f, j) {
   return `${CONTEXT}\n\nYou are a SKEPTICAL VERIFIER. A cross-lane reviewer (journey ${j.key} "${j.title}") reported the finding below. Try to REFUTE it: reproduce it yourself from scratch against current code. real = true only if you reproduced the harm yourself. Re-grade severity honestly. Default to real = false when you cannot reproduce it.\n\nFINDING:\n${JSON.stringify(f, null, 1)}\n\n${P.snapshot}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
 }
 function jFixPrompt(j, confirmed, round, prevVerify) {
-  return `${CONTEXT}\n\nYou are the FIXER for confirmed cross-lane defects from journey ${j.key} "${j.title}". Each was reproduced by a reviewer AND independently by a skeptic, and each is high or medium. Fix every one at its root with a test that goes red without the fix. Lows from this journey are queued for a later wave: do not fix them here.\n${prevVerify ? `\nThis is fix round ${round}; the verifier says:\n${JSON.stringify(prevVerify, null, 1)}\n` : ''}\nCONFIRMED FINDINGS:\n${JSON.stringify(confirmed.map(f => ({ title: f.title, severity: f.verdict.severity, ticket: f.ticket, files: f.files, evidence: f.evidence, reproduction: f.reproduction, suggestedFix: f.suggestedFix })), null, 1)}\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`
+  return `${context(j.units)}\n\nYou are the FIXER for confirmed cross-lane defects from journey ${j.key} "${j.title}". Each was reproduced by a reviewer AND independently by a skeptic, and each is high or medium. Fix every one at its root with a test that goes red without the fix. Lows from this journey are queued for a later wave: do not fix them here.\n${prevVerify ? `\nThis is fix round ${round}; the verifier says:\n${JSON.stringify(prevVerify, null, 1)}\n` : ''}\nCONFIRMED FINDINGS:\n${JSON.stringify(confirmed.map(f => ({ title: f.title, severity: f.verdict.severity, ticket: f.ticket, files: f.files, evidence: f.evidence, reproduction: f.reproduction, suggestedFix: f.suggestedFix })), null, 1)}\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`
 }
 function jVerifyPrompt(j, confirmed, fix) {
   return `${CONTEXT}\n\nYou are an INDEPENDENT VERIFIER for cross-lane fixes from journey ${j.key} "${j.title}". For each finding, reproduce the original scenario against the new code and confirm the harm is gone by every path you can find; read each fixer's red-output file (fixed[].redOutputFile) and confirm it failed for the right reason; revert-proof each new test in your snapshot. Missing red-first evidence means resolved = false. ${VERIFY_GATES} resolved = true only if every finding is gone and nothing high or medium regressed. ${REMAINING}\n\nFINDINGS:\n${JSON.stringify(confirmed.map(f => ({ title: f.title, reproduction: f.reproduction })), null, 1)}\nFIXER'S REPORT:\n${JSON.stringify(fix, null, 1)}\n\n${P.snapshot}\n\n${VGATES}\n\n${QUOTE_RULE}\n\nReturn through StructuredOutput.`
@@ -452,7 +461,7 @@ async function closeOut(item) {
     const fixes = []
     let ver = null
     for (let round = 1; round <= 2; round++) {
-      const fix = await run(`close:${item.unit}:${item.kind}#${round}`, `${CONTEXT}\n\nEvery lane has landed. Journey fixers and other close-out fixers may still be committing, never on this item's files. Close this OPEN ITEM (kind: ${item.kind}) at the ROOT, with a test that reproduces the exact scenario through production code, red first.\n\nOPEN ITEM:\n${JSON.stringify(item, null, 1)}\n${ver ? `\nYour previous round did not resolve it. The verifier says:\n${JSON.stringify({ ...ver, remaining: blocking(ver) }, null, 1)}\n` : ''}\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Close open items', schema: FIX })
+      const fix = await run(`close:${item.unit}:${item.kind}#${round}`, `${context(UNIT[item.unit] ? [item.unit] : [])}\n\nEvery lane has landed. Journey fixers and other close-out fixers may still be committing, never on this item's files. Close this OPEN ITEM (kind: ${item.kind}) at the ROOT, with a test that reproduces the exact scenario through production code, red first.\n\nOPEN ITEM:\n${JSON.stringify(item, null, 1)}\n${ver ? `\nYour previous round did not resolve it. The verifier says:\n${JSON.stringify({ ...ver, remaining: blocking(ver) }, null, 1)}\n` : ''}\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Close open items', schema: FIX })
       fixes.push(fix)
       ver = await run(`close-verify:${item.unit}:${item.kind}#${round}`, `${CONTEXT}\n\nYou are an INDEPENDENT VERIFIER. An open item was reported fixed; prove or disprove it by REPRODUCING the scenario against the new code, read the fixer's red-output files and confirm each failed for the right reason, and revert-proof each new test in a snapshot. Missing red-first evidence means resolved = false. ${VERIFY_GATES}\n\nOPEN ITEM:\n${JSON.stringify(item, null, 1)}\nFIXER'S REPORT:\n${JSON.stringify(fix, null, 1)}\n\n${P.snapshot}\n\n${VGATES}\n\n${QUOTE_RULE}\n\nresolved = true only if the high and medium harm is gone by every path you can find. ${REMAINING} Return through StructuredOutput.`, { phase: 'Close open items', schema: VERIFY })
       if (settled(ver)) break
@@ -474,8 +483,8 @@ if (leftovers.length) log(`${leftovers.length} open items left after the review 
 const closeResults = await Promise.all(closing)
 
 phase('Final gates')
-const finalRepair = (BASELINE ? 'Fix in-wave failures and regressions at their root with a documented commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a documented commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.') + ' A test-side flake (FLAKY TESTS below) is listed, not fixed.'
-const gates = await run('final-gates', `${CONTEXT}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in a documented commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n5. ${FLAKY_RULE}\nA gate whose only failures are test-side flakes you listed counts as green; name each one in notes too.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+const finalRepair = (BASELINE ? 'Fix in-wave failures and regressions at their root with a commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.') + ' A test-side flake (FLAKY TESTS below) is listed, not fixed.'
+const gates = await run('final-gates', `${context(Object.keys(UNIT))}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in its own commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n5. ${FLAKY_RULE}\nA gate whose only failures are test-side flakes you listed counts as green; name each one in notes too.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
 harvestFlaky(gates, 'final-gates')
 
 const gateFixes = (gates && gates.failuresFixed) || []
