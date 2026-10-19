@@ -67,3 +67,9 @@ Never pushes, never moves a ticket to Done.
 - Claude Code with the Workflow tool and the `workflow-authoring` skill, or Codex with native subagent tools. Native agents inherit the parent chat's permissions. The legacy CLI host requires the `codex` CLI and uses its own sandbox settings; it is selected only on explicit request.
 - `node`, `git`, `bash`, `perl` (lock polling).
 - [`/queue`](../queue) linked at `~/.agents/skills/queue`: `/wave` reads its `SKILL.md` and `estimate.py` from there.
+- The `simplified-technical-english` skill at `~/.agents/skills/simplified-technical-english/`: every text a person reads is written in it and checked with its `ste_check.py`.
+- Claude Code only, optional: the agent files `wave-builder.md`, `wave-checker.md` and `wave-planner.md` in `~/.claude/agents/`. They give each agent only the tools its role needs (28–39k starting tokens instead of about 78k). They aren't in this repo; without them, `/wave` uses general agents.
+
+## Checks
+
+Run `node <name>.check.mjs` for each check script after editing the script it covers, and `python3 helpers/codex-usage.py --selftest` after editing that helper.
