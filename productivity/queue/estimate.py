@@ -3,6 +3,7 @@
 
 Usage: estimate.py <path/to/WORK_QUEUE.md> [--json] [--with ID,ID]
        estimate.py <path/to/WORK_QUEUE.md> --candidates     (JSON: each Later/Waiting item vs Ready)
+       estimate.py <path/to/WORK_QUEUE.md> --promote ID,ID [--exempt ID,ID]  (JSON: which Later items fit the next wave, added in that order)
        estimate.py <path/to/WORK_QUEUE.md> --profile [--only ID,ID]  (JSON: the model and effort each Ready task needs)
        estimate.py <path/to/WORK_QUEUE.md> --splits         (JSON: Ready tasks on the longest chain that could split to finish sooner)
        estimate.py <path/to/WORK_QUEUE.md> --fit HOURS [--lean] [--with ID,ID] [--without ID,ID]
@@ -76,6 +77,7 @@ USAGE_CALIBRATION = [          # (wave, items, $ from its .cost.md ledger)
 CODEX = False                  # ponytail: set from --codex in main; a parameter through every caller if it ever matters
 MAX_LANES = 21         # the most lanes a wave has run at once (16 agents at a time)
 MARGIN = 0.8           # /queue fit plans to this share of the window (Matt, 2026-09-30)
+PROMOTE_SLACK_H = 0.25  # /queue promote: the most an item may add to the next wave without an exempt reason
 CALIBRATION = [        # (wave, longest lane h by this script on its .queue.md snapshot, items, actual h)
     ('2026-09-25', 6.75, 17, 7.5),
     ('2026-09-27', 6.67, 8, 7.3),
@@ -267,6 +269,35 @@ def fit(text, window_h, with_ids=(), without_ids=(), lean=False):
             'left': [i['id'] for i in left], 'left_hours': left_hours, 'everything_fits': not left,
             'all_hours': all_hours, 'split_cost_hours': round(hours + left_hours - all_hours, 2),
             'shortest_run_hours': min((plan([i])[key] for i in ready), default=0.0)}
+
+
+def promote(text, order, exempt=()):
+    """/queue promote step 4: add Later items to Ready one at a time, in the given order. Skip one that makes Ready
+    more than one wave (MAX_LANES lanes) or adds more than PROMOTE_SLACK_H to it, unless it's exempt."""
+    items = parse(text)
+    later = {i['id']: i for i in items if i['section'] == 'Later'}
+    unknown = sorted((set(order) | set(exempt)) - set(later))
+    if unknown:
+        raise ValueError('not an item in Later: ' + ', '.join(unknown))
+    ready = [i for i in items if i['section'] == 'Ready' and not i['human']]
+    was = now = plan(ready)
+    taken, skipped = [], []
+    for x in order:
+        if later[x]['human']:
+            skipped.append({'id': x, 'why': 'human-only'})
+            continue
+        p = plan(ready + [later[x]])
+        adds = max(0.0, round(p['hours'] - now['hours'], 2))
+        why = None if x in exempt else 'makes Ready more than one wave' if p['lanes'] > MAX_LANES else \
+            f'adds {adds}h, over {int(PROMOTE_SLACK_H * 60)} min' if adds > PROMOTE_SLACK_H else None
+        if why:
+            skipped.append({'id': x, 'adds_hours': adds, 'why': why})
+            continue
+        ready.append(later[x])
+        now = p
+        taken.append({'id': x, 'adds_hours': adds})
+    return {'taken': taken, 'skipped': skipped, 'was_hours': was['hours'], 'usage_basis': usage_basis(),
+            **{k: now[k] for k in ('items', 'lanes', 'hours', 'weekly_pct', 'lean_hours', 'lean_weekly_pct')}}
 
 
 def profile(text, only=()):
@@ -484,6 +515,24 @@ def selftest():
     many = '# Q\n\n## Ready\n' + ''.join(f'### K-{n} — x\n- **Touches:** src/k{n}.ts\n' for n in range(20))
     assert len(fit(many, 7)['picked']) == 14, fit(many, 7)          # 20 one-file fixes, no shared files: 14 items is 5.6h at 2.5 an hour
     assert len(fit(many, 7.5)['picked']) == 15, fit(many, 7.5)      # 15 lanes still make one wave (MAX_LANES 21)
+    mq = '# Q\n\n## Ready\n### A-1 — x\n- **Touches:** src/a.ts\n- **Want:** x (M · risk 1)\n## Later\n' + ''.join([
+        '### L-1 — small, own file\n- **Touches:** src/l1.ts\n',
+        '### L-2 — large, own file\n- **Touches:** src/l2.ts\n- **Want:** x (L · risk 2)\n',
+        '### L-3 — large, exempt\n- **Touches:** src/l3.ts\n- **Want:** x (L · risk 2)\n',
+        '### L-4 — human\n- **Type:** chore (human)\n- **Touches:** src/l4.ts\n'])
+    m = promote(mq, ['L-1', 'L-2', 'L-3', 'L-4'], exempt=['L-3'])
+    assert m['taken'] == [{'id': 'L-1', 'adds_hours': 0.0}, {'id': 'L-3', 'adds_hours': 0.28}], m  # L-1 fits in the slack; L-3's 110m lane outruns A-1's 70m
+    assert [(x['id'], x.get('adds_hours')) for x in m['skipped']] == [('L-2', 0.28), ('L-4', None)], m  # L-2 is the same size, but not exempt
+    assert m['was_hours'] == 5.34 and m['hours'] == 5.62 and m['items'] == 3 and 0 < m['lean_hours'] < m['hours'], m
+    wide = '# Q\n\n## Ready\n' + ''.join(f'### K-{n} — x\n- **Touches:** src/k{n}.ts\n' for n in range(21)) + '## Later\n### M-1 — x\n- **Touches:** src/m.ts\n'
+    assert promote(wide, ['M-1'])['skipped'][0]['why'] == 'makes Ready more than one wave', promote(wide, ['M-1'])  # a 22nd lane
+    assert promote(wide, ['M-1'], exempt=['M-1'])['taken'][0]['id'] == 'M-1'
+    for bad in (['K-1'], ['Z-9']):  # a Ready item or an unknown ID is refused
+        try:
+            promote(wide, bad)
+            raise AssertionError('promote must refuse ' + bad[0])
+        except ValueError:
+            pass
     po = profile(pq, only=['P-1', 'P-4'])
     assert [x['id'] for x in po['tasks']] == ['P-1', 'P-4'] and po['overall']['driven_by'] == ['P-4'], po
     for name, n, dollars in USAGE_CALIBRATION:  # every measured run lands within 30% of what it really used
@@ -513,6 +562,12 @@ if __name__ == '__main__':
     if '--fit' in sys.argv:
         try:
             print(json.dumps(fit(text, float(sys.argv[sys.argv.index('--fit') + 1]), ids('--with'), ids('--without'), '--lean' in sys.argv), ensure_ascii=False, indent=1))
+        except ValueError as err:
+            sys.exit(f'estimate.py: {err}')
+        sys.exit(0)
+    if '--promote' in sys.argv:
+        try:
+            print(json.dumps(promote(text, ids('--promote'), ids('--exempt')), ensure_ascii=False, indent=1))
         except ValueError as err:
             sys.exit(f'estimate.py: {err}')
         sys.exit(0)

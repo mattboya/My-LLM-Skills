@@ -37,7 +37,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 - `summary` → the **Summary** section below only. It reads; it writes nothing.
 - `fit <window> [lean]` → the **Fit** section below only. It reads; it writes nothing.
 - `quick [window]` → step 1, then the **Quick** section below.
-- `promote` → step 1, then the **Promote** section below.
+- `promote` → steps 1 and 2, then the **Promote** section below. Write what step 2 settles first (step 4's safe write; steps 3–4 for a follow-up it queues), so Promote reads current entries.
 - `unblock` → step 1, then the **Unblock** section below.
 
 ## Every run, in order
@@ -234,7 +234,7 @@ The paste line lists the picks in Ready order. Left behind names candidates only
 Move the Later items that belong in the next wave up to Ready, then report what moved. The user chose automatic: move, don't ask.
 
 1. Run `python3 ~/.agents/skills/queue/estimate.py <queue path> --candidates`. For each Later item it gives the Ready items that share its files, the time it adds to the next wave, its size, and whether it needs a database change.
-2. **Gate.** An item can move only if its spec is complete: Now, Want, Done when and Touches, anchors that still exist in the code, and no open questions. If it lacks Touches, Done when or both, it can still pass: write them as step 3 of an intake would (Touches includes the test files), but only for items step 4 will actually move. A follow-up bundle (a list of left-over bullets) passes only when every bullet names both what's wrong and the fix. Never promote an item whose spec is marked lost or is too thin to build, one that's really waiting on someone (report it as belonging in Waiting), a human-only item, or one the user parked on purpose (a note says to hold it or to decide something first).
+2. **Gate, from the entry text.** An item can move only if its spec is complete: Now, Want, Done when and Touches, and no open questions. If it lacks Touches, Done when or both, it can still pass: step 5 writes them. Don't read the code here: step 5 checks it for the picks only. A follow-up bundle (a list of left-over bullets) passes only when every bullet names both what's wrong and the fix. Never promote an item whose spec is marked lost or is too thin to build, one that's really waiting on someone (report it as belonging in Waiting), a human-only item, or one the user parked on purpose (a note says to hold it or to decide something first).
 3. **Reasons.** It needs at least one:
    - shares a file with a Ready item (from the script);
    - fits in the slack: adds 15 minutes or less to the next wave (from the script);
@@ -243,13 +243,14 @@ Move the Later items that belong in the next wave up to Ready, then report what 
    - a follow-up to something in Ready or just shipped (see the last wave doc's Results);
    - small and self-contained: size S, two files or fewer, no database change;
    - a real user-facing wrong: wrong pay numbers, data integrity, security or accessibility.
-4. **Add them up.** Take qualifying items in this order: coupled, shares a file, same page, follow-up, user-facing wrong, small, fits in the slack. After each, re-run `estimate.py <queue path> --with <every ID so far>`. Skip an item that would push the next wave past one wave (more than 21 lanes) or add more than 15 minutes, unless its reason is "coupled" or "a real user-facing wrong".
-5. Move the chosen entries from Later to the end of Ready with the safe write. Never touch Waiting: that's what unblock is for.
+4. **Add them up** in one call: `estimate.py <queue path> --promote <every qualifying ID> --exempt <the coupled and user-facing-wrong IDs>`. List the IDs in this order: coupled, shares a file, same page, follow-up, user-facing wrong, small, fits in the slack. The script adds them one at a time and skips an item that would push the next wave past one wave (more than 21 lanes) or add more than 15 minutes, unless it's exempt. `taken` is the picks, with the time each adds; `skipped` says why for the rest.
+5. **Check the picks in the code, then move them.** Work on a scratch copy (step 4's safe write, steps 1–3). For each pick: its anchors still exist in the code and it still happens (intake step 3's checks); write any missing Touches and Done when as intake step 3 would (Touches includes the test files), with the entry still in Later. A pick that fails stays in Later, under Not promoted. When a pick failed or got new Touches, re-run step 4 on the scratch copy without the failed ones: the totals and skips change. New picks get the same check; repeat until the picks stop changing. Then move the picks from Later to the end of Ready, in `taken` order, and finish the safe write (steps 4–5). Never touch Waiting: that's what unblock is for.
 6. **Reply**, briefly:
+   - step 5's `answers` lines, one per question step 2 settled, when it settled any;
    - `Ready after promote` (what the next /wave builds): one line per Ready item, in Ready order: `` `ID` — <the payoff sentence, as Summary writes it>``. A promoted item ends with `` (promoted: <reason>; adds about <h>h)``;
    - `Not promoted:` the near-misses, one line each: `` `ID` "<the fix in a few words>" (<why: spec incomplete, parked, too long>)``;
    - `Belongs in Waiting:` any Later item that's really blocked, named the same way;
-   - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage) · about <l>h lean (~<lw>%) (was <m>h).` From the script's `hours`, `weekly_pct`, `lean_hours` and `lean_weekly_pct`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The percents are rough (a few measured runs, on Matt's plans): add the script's `usage_basis` in brackets after them.
+   - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage) · about <l>h lean (~<lw>%) (was <m>h).` From the last `--promote` run's `items`, `hours`, `weekly_pct`, `lean_hours`, `lean_weekly_pct` and `was_hours`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The percents are rough (a few measured runs, on Matt's plans): add the script's `usage_basis` in brackets after them.
    - the **Kick off with** block from step 7;
    - the **Could go faster** lines from step 8, when there are any.
 7. **Kick-off setting.** Every agent in a wave runs on the model the chat is set to when `/wave` starts, and on its effort unless the plan gives a unit its own (since 2026-10-03), so recommend the one setting that covers every Ready task below the max row (after the moves above). Max-row tasks don't raise it: /wave runs those units at max on their own, so name them in Needed by as "max per unit". Run `estimate.py <queue path> --profile` for a first pass per task, then read each Ready entry and correct the pass where it's wrong, with the reason. It flags words, not meaning, so a label fix on the income page is not "pay math". Rubric, cheapest first:
