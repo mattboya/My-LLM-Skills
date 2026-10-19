@@ -120,7 +120,7 @@ Print this table as-is (a table, not a code block, so long lines wrap inside the
 | `/queue fit <7h \| 11:30pm>` | The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing. |
 | `/queue fit <window> lean` | The same for a /wave lean run (test-first builders, one final check, no reviews). |
 | `/queue quick [3h \| 11:30pm]` | Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line. |
-| `/queue promote` | Move Later items that fit the next wave into Ready, report what moved, and the model and effort to kick off /wave with. |
+| `/queue promote` | Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with. |
 | `/queue unblock` | Publish a page to decide the Waiting items; answers move them to Ready. |
 | `/queue answers` | Apply answers saved on the queue's pages (every /queue also does this first). |
 | `/queue answers <pasted>` | Apply answers someone copied off a page and sent you. |
@@ -246,9 +246,9 @@ Move the Later items that belong in the next wave up to Ready, then report what 
 4. **Add them up.** Take qualifying items in this order: coupled, shares a file, same page, follow-up, user-facing wrong, small, fits in the slack. After each, re-run `estimate.py <queue path> --with <every ID so far>`. Skip an item that would push the next wave past one wave (more than 21 lanes) or add more than 15 minutes, unless its reason is "coupled" or "a real user-facing wrong".
 5. Move the chosen entries from Later to the end of Ready with the safe write. Never touch Waiting: that's what unblock is for.
 6. **Reply**, briefly:
-   - one line per promoted item: `ID — <reason> — adds about <h>h`;
-   - `Not promoted:` the near-misses, one line each with why (spec incomplete, parked, too long);
-   - `Belongs in Waiting:` any Later item that's really blocked;
+   - `Ready after promote` (what the next /wave builds): one line per Ready item, in Ready order: `` `ID` — <the payoff sentence, as Summary writes it>``. A promoted item ends with `` (promoted: <reason>; adds about <h>h)``;
+   - `Not promoted:` the near-misses, one line each: `` `ID` "<the fix in a few words>" (<why: spec incomplete, parked, too long>)``;
+   - `Belongs in Waiting:` any Later item that's really blocked, named the same way;
    - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage) · about <l>h lean (~<lw>%) (was <m>h).` From the script's `hours`, `weekly_pct`, `lean_hours` and `lean_weekly_pct`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The percents are rough (a few measured runs, on Matt's plans): add the script's `usage_basis` in brackets after them.
    - the **Kick off with** block from step 7;
    - the **Could go faster** lines from step 8, when there are any.
