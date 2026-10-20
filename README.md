@@ -33,7 +33,7 @@ Both skills are manual-only: they run when you type them, never on their own.
 ```
 
 - **Queue entries are specced from the code**, not from the report: real file paths (tests included), `file:line` evidence and a "Done when", so an agent can build each one unattended.
-- **Decisions the code can't settle** (product, wording, design, cost, legal) aren't asked in chat. The entry gets a recommended answer and a `🔴 Decision open` block. After a wave, those questions appear as cards on a published page, and the answers flow back with `/queue answers`.
+- **Decisions the code can't settle** (product, wording, design, cost, legal) aren't asked in chat. The entry gets a recommended answer and a `🔴 Decision open` block. Those questions, and the decisions each wave made, live on one open-questions page per queue, at one link. A question stays there until it's answered, settled by later work, or no longer applies, and the answers flow back with `/queue answers`.
 - **Planning tools:** `/queue summary` gives one line per item and the time to finish; `fit <window>` picks what one run finishes before a deadline; `quick` pulls small, unrelated fixes into one lean run; `promote` moves Later items that fit the next wave into Ready and recommends the model and effort to start `/wave` with. All of these use `estimate.py`, which is calibrated on past runs: every `/wave` handoff adds its real hours and cost and checks the fit.
 - **`/wave` never pushes and never moves a ticket to Done.** `/wave plan` shows the estimate (hours, and weekly usage from the planned units) and stops; `/wave auto` runs unattended, and picks up that plan; `/wave lean` skips reviews for about a third of the usage.
 
@@ -47,7 +47,7 @@ productivity/
     SKILL.md                the skill (intake, safe writes, every subcommand)
     estimate.py             sizing, lanes, hours, weekly usage, model/effort profile
     queue-template.md       starting WORK_QUEUE.md
-    batch-page-template.html  stakeholder decision page
+    batch-page-template.html  the open-questions page
     agents/openai.yaml      Codex: run only when typed
   wave/                     /wave skill
     SKILL.md                the skill (plan, go/no-go, run, handoff, auto, lean)
@@ -84,7 +84,7 @@ Each skill's `agents/openai.yaml` is Codex's version of `disable-model-invocatio
 | What | Where | Used for |
 |---|---|---|
 | `wave-builder`, `wave-checker`, `wave-planner` agent types | `~/.claude/agents/wave-*.md` | Claude Code only. Slim agents with just the tools each role needs, so each starts at 28–39k tokens instead of about 78k. Without them `/wave` falls back to general agents. |
-| `simplified-technical-english` skill | `~/.agents/skills/simplified-technical-english/` | Every text a person reads (go/no-go, wave doc, tickets, batch page, wrap-up) is written in it and run through its `ste_check.py`. |
+| `simplified-technical-english` skill | `~/.agents/skills/simplified-technical-english/` | Every text a person reads (go/no-go, wave doc, tickets, open-questions page, wrap-up) is written in it and run through its `ste_check.py`. |
 
 ## Requirements
 

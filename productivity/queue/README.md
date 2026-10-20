@@ -30,8 +30,9 @@ Because the file has no git history, every write is a "safe write": copy to scra
 /queue fit <window> lean          The same for a /wave lean run (test-first builders, one final check, no reviews).
 /queue quick [3h]                 Pull small fixes that share nothing (single bullets from follow-up lists too) into Ready, and hand you the /wave lean line.
 /queue promote                    Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with.
-/queue unblock                    Publish a page to decide the Waiting items; answers move them to Ready.
-/queue answers                    Apply answers saved on the queue's pages (every /queue also does this first).
+/queue unblock                    Put the Waiting items on the open-questions page; answers move them to Ready.
+/queue questions                  Rebuild the open-questions page: every open question on one page, at one link.
+/queue answers                    Apply answers from the page, a paste, or chat (every /queue also does this first).
 /queue answers <pasted>           Apply answers someone copied off a page and sent you.
 /queue help                       This list.
 /wave                             Build everything in Ready: plan, one go/no-go, then the run (a separate skill).
@@ -47,7 +48,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 |---|---|
 | `SKILL.md` | The skill itself: intake steps, safe-write rules, and the summary / fit / promote / unblock / answers procedures. |
 | `queue-template.md` | Starting `WORK_QUEUE.md` for a project that doesn't have one yet. |
-| `batch-page-template.html` | The stakeholder page published after each batch (and by `/queue unblock`): plain-language decision cards that save answers to the page. |
+| `batch-page-template.html` | The open-questions page: one per queue, at one link, rolled after each wave and by `/queue unblock` and `/queue questions`. Plain-language decision cards that save answers to the page; a question stays until it's answered, settled by later work, or no longer applies. |
 | `estimate.py` | Sizes entries, groups them into parallel lanes by shared files, and estimates wave hours and the share of weekly usage (Claude, or Codex with `--codex`) from past runs. Modes: plain or `--json` (summary), `--fit` (fit and quick), `--candidates` and `--promote` (promote), `--profile` (model and effort), `--splits` (could go faster). Run it with no arguments for usage; `python3 estimate.py --selftest` checks it. |
 | `batch-page-companion.draft.md` | Draft of a separate "publish the batch page" skill. Not loaded (it isn't named `SKILL.md`). |
 | `agents/openai.yaml` | Codex metadata: runs only when you type `$queue`. |

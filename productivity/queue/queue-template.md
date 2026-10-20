@@ -30,23 +30,22 @@ down to what is genuinely left and name what closed the rest. Already ticketed
 but not done → point the entry at the ticket, and read the ticket's assignee and
 comments before working it.
 
-**When a batch finishes, publish one batch page.** Build it from
-`~/.agents/skills/queue/batch-page-template.html` (its header comment has the
-rules): what shipped and why it matters, how to check it by hand, and the
-decisions in three parts. **Not built yet** comes first: every `🔴 Decision open`
-still on an entry here, so answering them moves queued work forward. Then the
-decisions the batch's entries carried or the work raised: **Built differently
-from my recommendation** as full cards, left blank for you to pick, and **Built
-as recommended** pre-filled with what was built and folded to one line each, to
-skim and change only if you want to. Publish it privately,
-then add its link under `## Awaiting answers` at the end of this file.
-Stakeholders answer on the page; `/queue answers` applies an answer to an entry
-still waiting here, or turns an answer that differs from what was built into a
-follow-up entry.
+**Open questions live on one page.** Decisions the code can't settle, and the
+decisions each run made for you, go on one open-questions page per queue, at one
+link. Each `/wave` handoff, `/queue unblock` and `/queue questions` update it in
+place (`~/.agents/skills/queue/batch-page-template.html` has the rules). First
+come the questions that need you before something is built, then decisions built
+differently from my recommendation, merge decisions, Waiting items, and decisions
+built as recommended, folded by run to skim. A question stays until you answer
+it, later work settles it, or it no longer applies; the page lists what closed
+without you, and why. Stakeholders answer on the page; `/queue answers` applies
+an answer to an entry still waiting here, or turns an answer that differs from
+what was built into a follow-up entry. The page's link is the first line under
+`## Awaiting answers` at the end of this file.
 
 **`🔴 Decision open`** on an entry means it was written using the recommended
-answer, and the work builds that. The question shows under Not built yet on
-every batch page until someone answers it.
+answer, and the work builds that. The question stays on the open-questions page
+until someone answers it.
 
 **This file is gitignored, so it has no history and no undo.** Never edit it in
 place: build the new version in a scratch copy, check that the live file still
@@ -81,6 +80,6 @@ matches the copy you started from, then copy the new version over it.
 
 ## Awaiting answers
 
-<!-- One line per batch page still collecting answers:
-- YYYY-MM-DD — <page url> — <n> questions
-/queue answers deletes a line once every question on its page is settled. -->
+<!-- First line: the open-questions page.
+- Open questions — <page url> — <n> open (rolled YYYY-MM-DD)
+Then any older pages, still read until each of their questions is settled. -->
