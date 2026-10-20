@@ -37,6 +37,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 /wave                             Build everything in Ready: plan, one go/no-go, then the run (a separate skill).
 /wave ID, ID, …                   Build only those Ready items (the line /queue fit hands you).
 /wave auto                        The same, unattended: it takes the recommended answers and logs them for you.
+/wave plan                        Plan only: the firm estimate before you start. Then /wave auto runs that plan without stopping.
 /wave lean …                      Build only: test-first builders, one final check, no reviews. All /wave options: /wave help.
 ```
 

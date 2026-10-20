@@ -128,6 +128,7 @@ Print this table as-is (a table, not a code block, so long lines wrap inside the
 | `/wave` | Build everything in Ready: plan, one go/no-go, then the run (a separate skill). |
 | `/wave ID, ID, …` | Build only those Ready items (the line /queue fit hands you). |
 | `/wave auto` | The same, unattended: it takes the recommended answers and logs them for you. |
+| `/wave plan` | Plan only: the firm estimate (hours and weekly usage) before you start. Then `/wave auto` runs that plan without stopping. |
 | `/wave lean …` | Build only: test-first builders, one final check, no reviews. All /wave options: `/wave help`. |
 
 ## Summary (`/queue summary`)
@@ -250,7 +251,7 @@ Move the Later items that belong in the next wave up to Ready, then report what 
    - `Ready after promote` (what the next /wave builds): one line per Ready item, in Ready order: `` `ID` — <the payoff sentence, as Summary writes it>``. A promoted item ends with `` (promoted: <reason>; adds about <h>h)``;
    - `Not promoted:` the near-misses, one line each: `` `ID` "<the fix in a few words>" (<why: spec incomplete, parked, too long>)``;
    - `Belongs in Waiting:` any Later item that's really blocked, named the same way;
-   - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage) · about <l>h lean (~<lw>%) (was <m>h).` From the last `--promote` run's `items`, `hours`, `weekly_pct`, `lean_hours`, `lean_weekly_pct` and `was_hours`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The percents are rough (a few measured runs, on Matt's plans): add the script's `usage_basis` in brackets after them.
+   - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage, likely <lo>–<hi>%) · about <l>h lean (~<lw>%, likely <llo>–<lhi>%) (was <m>h). For a firmer number before you start: /wave plan.` From the last `--promote` run's `items`, `hours`, `weekly_pct`, `weekly_pct_range`, `lean_hours`, `lean_weekly_pct`, `lean_weekly_pct_range` and `was_hours`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The usage is a range because cost follows the units the planner cuts, and items are only a guess at those; `/wave plan` prices the real units. Add the script's `usage_basis` in brackets after the percents. With `--codex` there is no range yet: leave it out.
    - the **Kick off with** block from step 7;
    - the **Could go faster** lines from step 8, when there are any.
 7. **Kick-off setting.** Every agent in a wave runs on the model the chat is set to when `/wave` starts, and on its effort unless the plan gives a unit its own (since 2026-10-03), so recommend the one setting that covers every Ready task below the max row (after the moves above). Max-row tasks don't raise it: /wave runs those units at max on their own, so name them in Needed by as "max per unit". Run `estimate.py <queue path> --profile` for a first pass per task, then read each Ready entry and correct the pass where it's wrong, with the reason. It flags words, not meaning, so a label fix on the income page is not "pay math". Rubric, cheapest first:

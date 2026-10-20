@@ -5,6 +5,7 @@ argument-hint: |-
   [ITEM-IDs...]         plan, one go/no-go, then build Ready
   auto [ITEM-IDs...]    unattended: preserves existing work, prepares the run, takes recommended answers and Go
   lean [ITEM-IDs...]    build only: test-first builders and one final check, no reviews (combines with auto)
+  plan [ITEM-IDs...]    plan only: shows the estimate and questions, saves the plan, builds nothing; /wave auto then runs it
   help                  list every way to run /wave; starts nothing
 disable-model-invocation: true
 ---
@@ -51,6 +52,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
   | `/wave auto ITEM-ID […]` | Auto mode for only those items. |
   | `/wave lean [ITEM-ID…]` | Build only: test-first builders, one final check, no reviews (~a third of the usage). |
   | `/wave auto lean [ITEM-ID…]` | Lean and unattended. |
+  | `/wave plan [ITEM-ID…]` | Plan only, then stop: the estimate (hours, and weekly usage from the unit count) and the questions with their recommended answers. Builds nothing. Then `/wave auto` runs that plan to handoff without stopping, or `/wave` asks the questions first. Combines with lean. |
   | `/wave help` | This list. |
 
   **Automatic, no argument needed:**
@@ -63,7 +65,8 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
 
 - `auto` as the first word → **auto mode** (below) for this whole run; the rest of `$ARGUMENTS` works as usual.
 - **Auto startup:** before planning, read and follow [references/auto-start.md](references/auto-start.md). Its preparation/recovery rules override the manual clean-tree, missing-protocol and baseline-stop rules below. Uncommitted source work never requires a user cleanup step in auto mode.
-- `lean` as the first word, or right after `auto` → **lean mode** (below) for this whole run; the rest works as usual.
+- `lean` as the first word, or right after `auto` or `plan` → **lean mode** (below) for this whole run; the rest works as usual.
+- `plan` as the first word → **plan mode** (below): plan, show the go/no-go, save the plan and stop.
 - `$ARGUMENTS` = queue item IDs (as written in the `###` heading, e.g. `INC-12 S5`) → only those items. Empty → every `## Ready` item: Ready is exactly what a wave builds. `## Waiting` items are never built; each waits on something outside the code, named in its `Waiting on:` line. A `🔴 Decision open` block is not a wait: it is built with its recommended answer.
 - **Ready is empty** → don't plan an empty wave. The go/no-go becomes an unlock message: each Waiting item and what it waits on, and for waits the user can clear (their own go, a call they can make), one question each with a recommendation. A yes moves that entry to Ready (safe write) and into scope. Plan only what the answers would unlock, and say so.
 
@@ -75,7 +78,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
   2. Otherwise draft every `{{…}}` in `protocol-template.md` from the repo: README, CONTRIBUTING, CLAUDE.md/AGENTS.md, package.json scripts, Makefile/justfile/mise tasks, `scripts/`, CI config, formatter and linter configs, the current branch and `git config user.name`. Mark anything you guessed rather than read.
   3. Show the draft and ask once with AskUserQuestion: branch, author, ticket rules, and whether the test/format/lint commands and docs are right, each with your proposal as the recommended option. Write the section with the answers.
   In auto mode derive and record the conservative local draft under [auto startup](references/auto-start.md), then continue with the standing Go.
-- **Saved plan:** a wave doc beside the queue whose first lines say `**Status:** PLANNED` is an unstarted plan (older docs without a Status line are history, not plans). Pick up the newest one: diff the live queue against its snapshot (step 1.2) and bring the differences to the go/no-go. Otherwise plan fresh. This skill sets the Status line: `PLANNED` when written, `RUNNING` at go, `DONE` at handoff. A doc still at `RUNNING` is an interrupted run: never plan fresh over it. Resume it: re-run Wave 0 steps 0-3, then relaunch the runner with `args.seeds` from its last run's journal (step 3). Picking up a `PLANNED` doc re-runs the staleness check on any entry that changed since its snapshot.
+- **Saved plan:** a wave doc beside the queue whose first lines say `**Status:** PLANNED` is an unstarted plan (older docs without a Status line are history, not plans). Pick up the newest one: diff the live queue against its snapshot (step 1.2) and bring the differences to the go/no-go. Otherwise plan fresh. This skill sets the Status line: `PLANNED` when written, `RUNNING` at go, `DONE` at handoff. A doc still at `RUNNING` is an interrupted run: never plan fresh over it. Resume it: re-run Wave 0 steps 0-3, then relaunch the runner with `args.seeds` from its last run's journal (step 3). Picking up a `PLANNED` doc re-runs the staleness check on any entry that changed since its snapshot. A plan that says `Mode: lean` runs lean.
 - **Pending answers:** pages listed under `## Awaiting answers` → apply them first, as step 2 of `~/.agents/skills/queue/SKILL.md` says, with two differences: disagreements are not asked now but go into the go/no-go message, and follow-up entries the answers create are written to `## Later` and listed there as "added from answers"; they move to Ready and into scope only if the user keeps them.
 
 ## 1. Plan
@@ -88,7 +91,7 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
    - **Unit effort:** set `effort` when the rubric's row for that unit differs from the session's: `high` for an Opus · high unit in an extra session, `max` for a max-row unit. One max unit no longer makes the whole wave max.
    - **`proto`:** the checker's patch path, when there is one. The builder lands it test-first instead of re-deriving the fix (trial 2 builds took 2–4 minutes with one).
 5. **Wave doc** `YYYY-MM-DD-wave[-N].md` beside the queue: Scope; Not in this wave (and who each waits on); Protocol additions and hot files; Wave 0; Lanes table (units, size, owned files, waits for); Calls made where the notes left a gap (top two options and why; binding on agents); Journeys; Handoff; Human steps. Write every call out: nothing may live only in the scratchpad. First line: `**Status:** PLANNED`.
-6. **Estimate** in agent time (hours, agent count, most at once), scaled from the last wave doc's Results (agents and hours per unit); with no history, about 4 agents and 25 minutes per small unit, plus about 6 agents per journey. List human-gated waits separately.
+6. **Estimate** in agent time (hours, agent count, most at once), scaled from the last wave doc's Results (agents and hours per unit); with no history, about 4 agents and 25 minutes per small unit, plus about 6 agents per journey. List human-gated waits separately. **Usage:** `python3 ~/.agents/skills/queue/estimate.py --units <units in the plan>` (add `--lean` for a lean run, `--codex` in Codex) gives the run's share of the weekly limit, planning included. It prices units, not items: units are what the cost follows, so this number is firmer than `/queue promote`'s.
 
 ## 2. Go/no-go: the only stop
 
@@ -145,7 +148,8 @@ Don't edit the runner per wave. A real improvement goes into the runner itself, 
      - **Built as recommended** (`data-built` = `data-rec`): pre-filled with what was built, each card folded to one line (number, question, a few-word `Built as`), per the template. The user changed 7 of 85 of these.
 
    Engineering calls are listed as decisions made. Add the judge-while-testing list.
-4. Write the wave doc's `## Results` (commits, units, agents, hours from go to handoff, first-review failure rate, journey findings confirmed, lows queued unchecked, flaky tests queued: the next estimate scales from these) and set its Status to `DONE`. **Run cost:** run `python3 ~/.agents/skills/wave/helpers/wave-cost.py --session <this session's id: the UUID in your scratchpad path> --prev <the newest *.cost.md beside the wave doc> --ledger <wave doc stem>.cost.md` from the repo root after the handoff agents finish. Paste its table into Results; put its first line and any **Got dearer** line at the top of the batch page and in the wrap-up. A role that got dearer is a finding: say what changed. If the run used `reviewGates`, add the review minutes (first review, median and range), the lane-gates runs that went red and what caused them, and the final gates' failures. Give first-review failures by tier too (reviewed units only; the risk-tiered `lean` units had none), so the risk line in step 1.4 can be re-checked. Update memory with the unpushed state and deploy prerequisites. Fold what the wave taught into the queue's `## Wave protocol`.
+4. Write the wave doc's `## Results` (commits, units, agents, the times `/wave` was typed, Go and the handoff, hours from go to handoff, first-review failure rate, journey findings confirmed, lows queued unchecked, flaky tests queued: the next estimate scales from these) and set its Status to `DONE`. **Run cost:** run `python3 ~/.agents/skills/wave/helpers/wave-cost.py --session <the doc's **Plan session:** id and a comma, if it has one, then this session's id: the UUID in your scratchpad path> --prev <the newest *.cost.md beside the wave doc> --ledger <wave doc stem>.cost.md` from the repo root after the handoff agents finish. Paste its table into Results; put its first line and any **Got dearer** line at the top of the batch page and in the wrap-up. A role that got dearer is a finding: say what changed. If the run used `reviewGates`, add the review minutes (first review, median and range), the lane-gates runs that went red and what caused them, and the final gates' failures. Give first-review failures by tier too (reviewed units only; the risk-tiered `lean` units had none), so the risk line in step 1.4 can be re-checked. Update memory with the unpushed state and deploy prerequisites. Fold what the wave taught into the queue's `## Wave protocol`.
+   **Calibrate the estimator** (Claude runs; Codex has its own step under **In Codex**), so the next estimate learns from this one. In `~/.agents/skills/queue/estimate.py`, add one row to `CALIBRATION` (`LEAN_CALIBRATION` for a lean run): the wave, `ready_now.waves[0].longest_lane_h` from `estimate.py <this wave's .queue.md> --json --only <the in-scope IDs>`, the item count, and the hours from typing `/wave` to the handoff (a `/wave plan` run: its planning hours plus the run's; leave out any time between the two and any usage-limit pause). Add one row to `UNIT_CALIBRATION`: the wave, the item count, units, the ledger's dollars, and lean or not. Then run `estimate.py --selftest`. If it passes, commit `estimate.py` alone in its own repo (`git -C "$(dirname "$(readlink -f ~/.agents/skills/queue/estimate.py)")" commit -m "queue: calibrate from wave <date>" estimate.py`). Never push. If the selftest fails, the run missed by more than the model allows: take the row back out, and write `Estimator missed: <row>, <estimate> against <actual>; refit needed` in Results and in the wrap-up.
 5. Wrap-up in the user's status conventions: `git fetch` before any ahead count, the page link, the flaky tests queued to Ready (CI may flake on them until the next wave), the human steps. No push.
 
 ## Auto mode (`/wave auto`)
@@ -164,11 +168,19 @@ The same run, unattended: invoking `/wave auto` is the user's standing instructi
 - **Batch page:** add a theme group **Answered for you**, first in the **Built as recommended** part (folded like the rest), with one card per self-answered question. Set `data-built` and `data-rec` to the letter it took, and `data-entry` to the item the question was about (empty for a plan-level question). A different pick then becomes a follow-up through `/queue answers`, as for any other card.
 - **Wrap-up:** add two blocks. **Answered for you** gives one line per question, the answer taken and the page card it's on. **Held for you** lists the drafts to post, the stakeholder disagreements, and the Waiting items that look ready to move.
 
+## Plan mode (`/wave plan`)
+
+The user's way to see the estimate before an unattended run. Steps 0 and 1 run as in a normal run; a missing protocol is still asked. Then:
+
+- **Go/no-go:** write the full message (step 2) into the wave doc under `## Go/no-go (plan)` and print it. Each question shows its recommended answer. Ask nothing, give no Go, and stop. The Status stays `PLANNED`. Nothing is filed and nothing is built.
+- **For the run that picks it up:** under the Status line, write `**Plan session:** <this session's id: the UUID in your scratchpad path>`, so the run cost counts the planning (step 4.4), and `**Plan files:** {SP}`, where the prototypes and red outputs are. If that folder is gone at pick-up, the units run without their `proto`.
+- **End** with what to type next: `/wave auto` runs this plan to the handoff with the recommended answers and does not stop; `/wave` asks the questions first. Both pick up the plan, so planning is not done again.
+
 ## Lean mode (`/wave lean`)
 
 The user's choice to trade the review layers for usage. In wave 2026-10-01 (2), the builders were about a quarter of the run's usage, and the per-unit reviews, fixes and re-checks were half; the cross-lane reviews were another 12%. Lean keeps TDD and drops the rest. Everything not listed here is a normal run, and auto mode combines with it.
 
-- **Plan:** no journeys (step 4). The staleness check stays, prototypes included: they are lean's only adversarial look, and each patch becomes its unit's `proto`, so the builder lands it instead of re-deriving it (lean 10-03: planning was 43% of the run's cost, builders 31%). The estimate is `lean_hours` from `estimate.py` (a model until lean runs are calibrated).
+- **Plan:** no journeys (step 4). The staleness check stays, prototypes included: they are lean's only adversarial look, and each patch becomes its unit's `proto`, so the builder lands it instead of re-deriving it (lean 10-03: planning was 43% of the run's cost, builders 31%). The estimate is `lean_hours` from `estimate.py`, and usage is `estimate.py --units <units> --lean`.
 - **Go/no-go:** the message says it's a lean run: no per-unit reviews and no cross-lane reviews, so the bugs those catch (8 of 49 units failed first review on 10-01) land on the local branch. The setting check uses the lean line in the queue skill's Promote step 7, and names its *risky lean* tasks.
 - **Run:** pass `lean: true` to the runner. It runs one test-first builder per unit, then one final-gates agent that fixes anything red except a test-side flaky test, which it lists for the queue's Ready. It skips journeys, `reviewGates` and close-outs, and reports open items instead of closing them.
 - **Handoff:**
@@ -176,7 +188,7 @@ The user's choice to trade the review layers for usage. In wave 2026-10-01 (2), 
   - A unit that built nothing (an open item) doesn't count as shipped: its entry stays in the queue, and the wrap-up names it.
   - The wrap-up lists every unit whose report has no test, or a test with `sawRedFirst` false.
   - Batch page: only the built-decision parts (the builders' `productFlavour` decisions and the shipped entries' `🔴` blocks) plus the judge-while-testing list. Skip **Not built yet**.
-  - Results open with `Mode: lean` and leave out review and journey figures. Calibrate `estimate.py`'s `LEAN_*` constants from the run's hours.
+  - Results open with `Mode: lean` and leave out review and journey figures. Calibrate the estimator as step 4.4 says, with the lean rows.
 
 ## Never
 

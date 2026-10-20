@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """What a /wave run cost and where its time went, from the session's own transcripts.
 
-Usage: wave-cost.py --session <id> [--project-dir DIR] [--prev LAST.cost.md] [--ledger OUT.cost.md]
-  --session      the run's session id (the UUID in the run's scratchpad path)
+Usage: wave-cost.py --session <id>[,<id>] [--project-dir DIR] [--prev LAST.cost.md] [--ledger OUT.cost.md]
+  --session      the run's session id (the UUID in the run's scratchpad path); a plan made by /wave plan in
+                 another session adds that session's id first, comma-separated, so planning is counted too
   --project-dir  ~/.claude/projects/<slug>; default: derived from the current directory
   --prev         the previous run's ledger: adds a change column and flags roles that got dearer
   --ledger       write this report plus its numbers (a json block) for the next run to compare against;
@@ -68,10 +69,11 @@ def main():
     ap.add_argument('--prev')
     ap.add_argument('--ledger')
     a = ap.parse_args()
-    sd = os.path.join(a.project_dir, a.session)
-    main_s = scan(sd + '.jsonl')
+    sds = [os.path.join(a.project_dir, s.strip()) for s in a.session.split(',') if s.strip()]
+    mains = [scan(sd + '.jsonl') for sd in sds]
+    main_s = {'cost': sum(m['cost'] for m in mains), 'turns': sum(m['turns'] for m in mains), 'ctx0': mains[0]['ctx0']}
     agents, flows = [], defaultdict(list)
-    for meta in glob.glob(os.path.join(sd, 'subagents', '**', '*.meta.json'), recursive=True):
+    for meta in [m for sd in sds for m in glob.glob(os.path.join(sd, 'subagents', '**', '*.meta.json'), recursive=True)]:
         j = meta[:-len('.meta.json')] + '.jsonl'
         if not os.path.exists(j):
             continue

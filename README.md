@@ -34,8 +34,8 @@ Both skills are manual-only: they run when you type them, never on their own.
 
 - **Queue entries are specced from the code**, not from the report: real file paths (tests included), `file:line` evidence and a "Done when", so an agent can build each one unattended.
 - **Decisions the code can't settle** (product, wording, design, cost, legal) aren't asked in chat. The entry gets a recommended answer and a `🔴 Decision open` block. After a wave, those questions appear as cards on a published page, and the answers flow back with `/queue answers`.
-- **Planning tools:** `/queue summary` gives one line per item and the time to finish; `fit <window>` picks what one run finishes before a deadline; `quick` pulls small, unrelated fixes into one lean run; `promote` moves Later items that fit the next wave into Ready and recommends the model and effort to start `/wave` with. All of these use `estimate.py`, which is calibrated on past runs.
-- **`/wave` never pushes and never moves a ticket to Done.** `/wave auto` runs unattended, and `/wave lean` skips reviews for about a third of the usage.
+- **Planning tools:** `/queue summary` gives one line per item and the time to finish; `fit <window>` picks what one run finishes before a deadline; `quick` pulls small, unrelated fixes into one lean run; `promote` moves Later items that fit the next wave into Ready and recommends the model and effort to start `/wave` with. All of these use `estimate.py`, which is calibrated on past runs: every `/wave` handoff adds its real hours and cost and checks the fit.
+- **`/wave` never pushes and never moves a ticket to Done.** `/wave plan` shows the estimate (hours, and weekly usage from the planned units) and stops; `/wave auto` runs unattended, and picks up that plan; `/wave lean` skips reviews for about a third of the usage.
 
 Each skill's README has the full command list and file guide: [queue](productivity/queue/README.md), [wave](productivity/wave/README.md).
 
