@@ -58,12 +58,24 @@ function run(label, prompt, opts) {
 
 const QUOTE_RULE = `SHELL SAFETY (this run is unattended; one command stuck on a safety prompt deadlocks the whole wave): ALWAYS double-quote variables in rm/cp/mv paths ("$D/x.tsx", "\${VAR:?}"), prefer literal absolute paths, and never run a command that needs interactive approval. NEVER put rm, cp or mv inside a for/while loop or a pipeline, even with quoted "\${VAR:?}" paths: the safety check still stops a loop for approval, and nobody is awake to give it (two agents stalled 40-77 minutes on 2026-09-28, one of them on its final cleanup). Delete each snapshot with its own single command (\`rm -rf "\${SNAP:?}"\`), tear e2e snapshots down with e2e-snapshot.sh down, and refresh a snapshot by making a new one with snapshot.sh rather than syncing files into an old one.`
 
+// Every committed test runs on every CI push for as long as it lives; a wave that commits a browser test per layout fix
+// tripled the project's CI browser job (8 to 25 minutes a run, 2026-09-28..10-19). /wave SKILL.md pastes this into planning checkers.
+const PLACEMENT = `TEST PLACEMENT: every test you commit runs on every CI push from then on, so each test goes on the cheapest layer that can fail for the bug:
+1. UNIT: the non-browser suites (unit, feature, component; mock layout values such as widths where you need them). Every rule, calculation, state change and branch goes here.
+2. BROWSER: the CI browser suite, only for a user path that crosses pages, a reload or a real-time update, where a break costs a user their data, money, access or a message they sent. Add the test to the spec that already covers that path before you add a file.
+3. PROOF: everything else that only a real browser shows (layout, fit, wrapping, overflow, spacing, contrast, paint, motion, focus). Write it as a normal browser test and run it in a disposable snapshot, never in the shared tree: see it red, make it green, then save the test file and both outputs under ${SP}/tdd/<your label>-<slice>-proof/. It is red-first evidence, and it is not committed.
+In testsAdded, give each test its tier. For a BROWSER test, say in whyBrowser which data, money, access or message the path protects.${P.tiers ? `
+THIS PROJECT'S TEST TIERS (they win over the list above):
+${P.tiers}` : ''}`
+
 const TDD = `TEST-DRIVEN DEVELOPMENT (required for every slice; the reviewer fails a unit without the evidence):
 1. RED: write the test first. Run it against the current code and SEE IT FAIL for the right reason (the behaviour is missing or wrong, not a typo, import or setup error). Save that output to ${SP}/tdd/<your label>-<slice>-red.txt.
 2. GREEN: write the smallest production change that makes it pass. Save the passing output to ${SP}/tdd/<your label>-<slice>-green.txt.
 3. REFACTOR with the tests green.
 Tests call production code (never restate the production predicate inside the test), must fail when the fix is reverted, and every new constant or branch has a real consumer (no dead code that looks wired). Report every test in testsAdded with sawRedFirst and its red-output file.${P.visualNeedsTests ? '' : `
-Exception: a slice that changes only styling, copy or spacing (classes, CSS, text; no logic, conditions or data) needs no new test. Existing tests and gates still run. Say "Visual only: no new test" in your summary.`}`
+Exception: a slice that changes only styling, copy or spacing (classes, CSS, text; no logic, conditions or data) needs no new test. Existing tests and gates still run. Say "Visual only: no new test" in your summary.`}
+
+${PLACEMENT}`
 
 const PROJECT_RULES = `If the project's CLAUDE.md or AGENTS.md sets commit, comment or test rules, follow those where they differ from these.`
 
@@ -81,14 +93,14 @@ CODE COMMENTS: write one only for what the code cannot say: a non-obvious why, a
 
 const DEC = { type: 'object', properties: { question: { type: 'string' }, optionA: { type: 'string' }, optionB: { type: 'string' }, picked: { type: 'string' }, why: { type: 'string' }, productFlavour: { type: 'boolean' } }, required: ['question', 'optionA', 'optionB', 'picked', 'why', 'productFlavour'] }
 const COMMIT = { type: 'object', properties: { sha: { type: 'string' }, ticket: { type: 'string' }, subject: { type: 'string' } }, required: ['sha', 'ticket', 'subject'] }
-const GATE = { type: 'object', properties: { name: { type: 'string' }, exitCode: { type: 'string' }, summary: { type: 'string' } }, required: ['name', 'exitCode', 'summary'] }
+const GATE = { type: 'object', properties: { name: { type: 'string' }, exitCode: { type: 'string' }, summary: { type: 'string' }, tests: { type: 'number' }, minutes: { type: 'number' } }, required: ['name', 'exitCode', 'summary'] }
 const IMPL = { type: 'object', properties: {
   status: { type: 'string', enum: ['complete', 'partial', 'blocked'] },
   commits: { type: 'array', items: COMMIT },
   filesTouched: { type: 'array', items: { type: 'string' } },
   summary: { type: 'string' },
   userFacingChange: { type: 'string' },
-  testsAdded: { type: 'array', items: { type: 'object', properties: { file: { type: 'string' }, what: { type: 'string' }, sawRedFirst: { type: 'boolean' }, redOutputFile: { type: 'string' } }, required: ['file', 'what', 'sawRedFirst', 'redOutputFile'] } },
+  testsAdded: { type: 'array', items: { type: 'object', properties: { file: { type: 'string' }, what: { type: 'string' }, tier: { type: 'string', enum: ['unit', 'browser', 'proof'] }, whyBrowser: { type: 'string' }, sawRedFirst: { type: 'boolean' }, redOutputFile: { type: 'string' } }, required: ['file', 'what', 'tier', 'sawRedFirst', 'redOutputFile'] } },
   decisions: { type: 'array', items: DEC },
   deviationsFromBrief: { type: 'array', items: { type: 'string' } },
   pendingHumanSteps: { type: 'array', items: { type: 'string' } },
@@ -266,6 +278,9 @@ DO ALL OF THIS:
 3. REPRODUCE the user-visible behaviour the entry describes, end to end, and trace each fix to what the user sees.
 4. Check the two shapes we keep writing: a test that restates the production predicate instead of calling it, and dead code that looks wired.
 5. ${P.reviewGates ? 'Run the REVIEW GATES below (targeted to this unit; the full gates run once per lane and again at the end)' : 'Run the full gates'} in your snapshot, each redirected to a file, and quote exit codes.
+6. TEST PLACEMENT: hold every test in testsAdded to the rule below. A committed BROWSER test that a UNIT test or a PROOF can carry is a mustFix ("move it to <tier>"): it costs every later CI run. A PROOF counts as red-first evidence; revert-proof it from its saved file.
+
+${PLACEMENT}
 
 ${P.snapshot}
 
@@ -484,7 +499,7 @@ const closeResults = await Promise.all(closing)
 
 phase('Final gates')
 const finalRepair = (BASELINE ? 'Fix in-wave failures and regressions at their root with a commit (test red first), then re-run that gate. Preserve outside-wave baseline failures in remainingFailures; allGreen is false while any full gate is red. A stale test\'s premise gets fixed only within scope, never weakened or deleted.' : 'Fix any failure at its root with a commit (test red first), then re-run that gate. A stale test\'s premise gets fixed, never deleted.') + ' A test-side flake (FLAKY TESTS below) is listed, not fixed.'
-const gates = await run('final-gates', `${context(Object.keys(UNIT))}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in its own commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals:\n${P.gates}\n4. ${finalRepair}\n5. ${FLAKY_RULE}\nA gate whose only failures are test-side flakes you listed counts as green; name each one in notes too.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
+const gates = await run('final-gates', `${context(Object.keys(UNIT))}\n\nEvery lane, journey and close-out fix has finished. You are the FINAL GATE KEEPER; no other agent is writing now.\n1. \`git -C ${REPO} status --porcelain\`: report anything uncommitted. If a stray file obviously belongs to one of this wave's commits, add it in its own commit; otherwise leave it and report it.\n2. \`${SP}/wave/lock.sh status\` must show no locks; report any.\n3. Run the full gates IN THE SHARED TREE, each redirected to a file, quoting exit codes and totals. For each whole suite, time the run (\`date +%s\` before and after) and set the gate's tests (the test count) and minutes: the handoff compares them with the baseline to show what this wave adds to every CI run.\n${P.gates}\n4. ${finalRepair}\n5. ${FLAKY_RULE}\nA gate whose only failures are test-side flakes you listed counts as green; name each one in notes too.\n\n${FIX_RULES}\n\nReturn through StructuredOutput.`, { phase: 'Final gates', schema: GATES })
 harvestFlaky(gates, 'final-gates')
 
 const gateFixes = (gates && gates.failuresFixed) || []

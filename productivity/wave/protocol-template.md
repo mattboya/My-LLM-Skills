@@ -8,8 +8,8 @@ Keep each block self-contained. Tighten it after every wave with what the wave t
 
 - **Branch:** {{BRANCH}}. **Author:** {{GIT_AUTHOR or "any"}}.
 - **Isolation:** one shared checkout. No worktrees, no branches.
-- **Push:** never. The wave stops at the local branch; push only on the user's explicit OK for that push.
-- **Tickets:** {{TRACKER RULES — which project, assignee, sprint, lifecycle; or "none: the queue ID is the commit key, decoded in QUEUE_IDS.txt"}}. Queue IDs never go into the tracker, nor into commits when there is one.
+- **Push:** only through `/wave land`, after the user types it: one branch `wave/<wave doc stem>` and one pull request into {{BRANCH}}, which the user merges with a merge commit. Agents never push.
+- **Tickets:** {{TRACKER RULES — which project, assignee, sprint, lifecycle (the move at dispatch, at the handoff and at the merge); or "none: the queue ID is the commit key, decoded in QUEUE_IDS.txt"}}. Queue IDs never go into the tracker, nor into commits when there is one.
 - **Helpers:** `~/.agents/skills/wave/helpers/{wave-commit.sh,lock.sh}`{{, plus any project snapshot helpers}}. Wave 0 copies them into `{SP}/wave/` and writes `{SP}/wave/wave.env` with `WAVE_REPO={REPO}`, `WAVE_BRANCH={{BRANCH}}`{{, WAVE_AUTHOR=...}}.
 - **Deploy notes to carry into the handoff:** {{restarts, migrations, anything a human must do before or after release}}.
 
@@ -40,6 +40,11 @@ ISOLATION (reviewers and verifiers): do not edit anything under {REPO}. Make a d
 ### Gates
 
 GATES, each redirected to a file with its exit code echoed (never piped): {{FULL TEST, TYPECHECK, LINT, FORMAT and E2E COMMANDS}}. Fix a failing test's premise, never weaken or delete the test.
+
+### Test tiers
+
+<!-- Optional: delete this block to use the runner's default PLACEMENT (lane-runner.js). Builders, reviewers and planning checkers read it, and it wins over the default. -->
+TEST TIERS IN THIS PROJECT: {{WHICH SUITES RUN ON EVERY CI PUSH; THE USER PATHS THAT EARN A COMMITTED BROWSER TEST HERE; WHERE BROWSER-ONLY PROOFS GO (uncommitted, or a project or tag that CI does not run on every push)}}.
 
 ### Flaky tests
 

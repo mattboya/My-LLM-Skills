@@ -175,8 +175,18 @@ assert(writers.every(l => prompts[l].includes('CODE COMMENTS') && prompts[l].inc
 assert(prompts['impl:U1'].includes('Visual only: no new test') && prompts['review:U1'].includes('visual-only'), 'builders and reviewers get the visual-only test exception')
 assert(prompts['journey:J1'].includes('W-impl:U1') && prompts['journey:J1'].includes('Q-impl:U1') && !prompts['journey:J2'].includes('W-impl:U1') && !prompts['journey:J1'].includes('each message documents'), 'a journey gets its own units\' summaries and decisions, not a pointer to commit bodies')
 assert(prompts['final-gates'].includes('W-impl:U3') && prompts['final-gates'].includes('W-impl:U1'), 'the final gates get every unit\'s digest')
+// 2026-10-21: every committed test runs on every CI push, so layout and motion checks are uncommitted proofs.
+assert(writers.concat('review:U1').every(l => prompts[l].includes('TEST PLACEMENT') && prompts[l].includes('-proof/')), 'builders, every fixer and reviewers get the test placement rule')
+assert(prompts['review:U1'].includes('is a mustFix ("move it to <tier>")'), 'a reviewer fails a browser test that a unit test or a proof can carry')
+assert(optsOf['impl:U1'].schema.properties.testsAdded.items.required.includes('tier') && optsOf['final-gates'].schema.properties.gates.items.properties.minutes, 'builders report each test\'s tier; final gates can report suite minutes')
+assert(prompts['final-gates'].includes('set the gate\'s tests'), 'the final gate keeper counts and times each whole suite')
+calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
+await body({ ...args, seeds: {}, protocol: { ...args.protocol, tiers: 'TIERS-XYZ' } }, agent, parallel, () => {}, () => {})
+assert(prompts['impl:U1'].includes('TIERS-XYZ') && prompts['review:U1'].includes('TIERS-XYZ'), 'a project\'s Test tiers block reaches builders and reviewers')
 calls.length = 0; for (const k in reviewCount) delete reviewCount[k]
 await body({ ...args, seeds: {}, protocol: { ...args.protocol, visualNeedsTests: true } }, agent, parallel, () => {}, () => {})
 assert(!prompts['impl:U1'].includes('Visual only: no new test') && !prompts['review:U1'].includes('visual-only'), 'a project can turn the visual-only exception off')
 const skill = readFileSync(new URL('./SKILL.md', import.meta.url), 'utf8')
+assert(skill.includes('`PLACEMENT` paragraph from `lane-runner.js`') && src.includes('const PLACEMENT = '), 'planning checkers get the runner\'s placement paragraph')
+assert(/## Land \(`\/wave land`\)/.test(skill) && skill.includes('Never merge it, and never turn on auto-merge') && skill.includes('Merge a pull request or turn on auto-merge, even in `/wave land`'), '/wave land pushes one PR and never merges')
 assert(/technical notes[^\n]*productFlavour: false|productFlavour: false[^\n]*technical notes/.test(skill), 'handoff puts engineering decisions on the ticket\'s technical notes')

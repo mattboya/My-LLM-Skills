@@ -35,7 +35,8 @@ Both skills are manual-only: they run when you type them, never on their own.
 - **Queue entries are specced from the code**, not from the report: real file paths (tests included), `file:line` evidence and a "Done when", so an agent can build each one unattended.
 - **Decisions the code can't settle** (product, wording, design, cost, legal) aren't asked in chat. The entry gets a recommended answer and a `🔴 Decision open` block. Those questions, and the decisions each wave made, live on one open-questions page per queue, at one link. A question stays there until it's answered, settled by later work, or no longer applies, and the answers flow back with `/queue answers`.
 - **Planning tools:** `/queue summary` gives one line per item and the time to finish; `fit <window>` picks what one run finishes before a deadline; `quick` pulls small, unrelated fixes into one lean run; `promote` moves Later items that fit the next wave into Ready and recommends the model and effort to start `/wave` with. All of these use `estimate.py`, which is calibrated on past runs: every `/wave` handoff adds its real hours and cost and checks the fit.
-- **`/wave` never pushes and never moves a ticket to Done.** `/wave plan` shows the estimate (hours, and weekly usage from the planned units) and stops; `/wave auto` runs unattended, and picks up that plan; `/wave lean` skips reviews for about a third of the usage.
+- **Only `/wave land` pushes.** It pushes the finished wave as one branch and opens one PR, with the wave's summary as its description, so CI runs once on the whole wave. You merge it, and a second `/wave land` moves the tickets. Nothing merges for you. `/wave plan` shows the estimate (hours, and weekly usage from the planned units) and stops; `/wave auto` runs unattended, and picks up that plan; `/wave lean` skips reviews for about a third of the usage.
+- **Tests go on the cheapest layer that can fail,** because every committed test runs on every CI push. A CI browser test is only for a user path that protects data, money, access or a sent message. Layout and motion checks are red-first proofs that stay out of the commit. Each wave reports its suites' test counts and minutes before and after.
 
 Each skill's README has the full command list and file guide: [queue](productivity/queue/README.md), [wave](productivity/wave/README.md).
 
@@ -92,7 +93,7 @@ The third link is for Google Antigravity (app and IDE; `mkdir -p ~/.gemini/confi
 ## Requirements
 
 - Claude Code (with the Workflow tool for `/wave`), or Codex with native subagent tools.
-- `python3`, `node`, `git`, `bash` and `perl`.
+- `python3`, `node`, `git`, `bash` and `perl`, plus `gh` for `/wave land`.
 - Stakeholder pages that save answers need Claude's Artifact tools. In Codex the page is a local file, and people paste their answers back.
 
 ## Checks

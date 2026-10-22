@@ -136,7 +136,7 @@ return { results, review }
   await until(() => existsSync(join(T, 'lanes.native.run', 'state.json')) && job(lanes.argsPath, 'impl:U1'))
   assert(!job(lanes.argsPath, 'impl:U2'))
   const impl = { status: 'complete', commits: [{ sha: 'abc123', ticket: 'T-A', subject: 'test' }], filesTouched: ['a'], summary: 'test', userFacingChange: 'test',
-    testsAdded: [{ file: 'test', what: 'behavior', sawRedFirst: true, redOutputFile: 'red.txt' }], decisions: [], deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: [] }
+    testsAdded: [{ file: 'test', what: 'behavior', tier: 'unit', sawRedFirst: true, redOutputFile: 'red.txt' }], decisions: [], deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: [] }
   for (const label of ['impl:U1', 'impl:U2']) {
     await until(() => job(lanes.argsPath, label))
     const request = json(job(lanes.argsPath, label).jobPath)
