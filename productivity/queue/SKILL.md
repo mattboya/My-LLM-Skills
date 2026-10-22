@@ -28,6 +28,13 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 - **Kick-off setting** (Promote step 7): keep the rubric's rows but name the effort only, as Codex's `model_reasoning_effort` on the model Codex is set to: high → `high`, extra or max → `xhigh`. The rubric and `estimate.py`'s hours were measured on Claude waves; say so in the reply.
 - **Weekly usage** (Promote step 6): pass `--codex` to every `estimate.py` call, so the percents are priced from Codex's own runs. A Codex plan's week holds far less wave work than Claude's.
 
+## In Antigravity
+
+Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In Codex** above, with these changes:
+- The user types `/queue …`. Keep `/queue` and `/wave` as written.
+- **Weekly usage** and the **kick-off setting** come from Claude and Codex runs and don't apply here. Give the hours only, leave out the usage percents and the effort, and say why.
+- `/wave` doesn't run in Antigravity yet. Where a reply says to start `/wave`, say to start it in Claude Code or Codex.
+
 ## Input
 
 - The fix is `$ARGUMENTS`. If it points back ("that last one", "the second bug"), take the fix from this conversation. If you can't tell which one, ask with AskUserQuestion.

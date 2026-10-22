@@ -40,6 +40,10 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
 - **Tickets:** if Codex has no tools for the protocol's tracker, say so at the go/no-go, file nothing, and use ticket `none` (Wave 0 step 4).
 - **Run cost** (step 4.4): `wave-cost.py` reads Claude transcripts only. Skip it, and run `python3 ~/.agents/skills/wave/helpers/codex-usage.py --since <go time> --until <handoff time>` instead: it reads the weekly percent Codex logs on every turn. Paste its line, with the item and unit counts, into Results, and add the run to `CODEX_RUN_PCT` in the queue's `estimate.py` (its docstring says how). Take the native agent count, IDs and hours from the run's jobs, journal and archived attempts. Codex has no memory step: put the unpushed state and deploy prerequisites in the wrap-up.
 
+## In Antigravity
+
+Not supported yet. Antigravity has no Workflow tool, and `native-host.mjs` has not been tried with its `invoke_subagent`. `/wave help` works as written. For any other `/wave`, say this, plan and build nothing, and tell the user to run it in Claude Code or Codex.
+
 ## Input
 
 - `help` as the only word → print the block below as-is (markdown, not a code block, so long lines wrap inside their column), then stop. No queue read, no workflow, no edits.

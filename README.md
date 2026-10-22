@@ -70,12 +70,15 @@ This repo holds the only copy of the skills. Claude Code loads skills from `~/.c
 for s in queue wave; do
   ln -sfn "$PWD/productivity/$s" ~/.claude/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.agents/skills/$s
+  ln -sfn "$PWD/productivity/$s" ~/.gemini/config/skills/$s
 done
 ```
 
-Run from the repo root. Edits here are live in both tools immediately, and `git pull` picks up changes made elsewhere. Make the `~/.agents/skills` links even without Codex: the skills find their own files (`estimate.py`, `codex-host.mjs`…) through `~/.agents/skills/<name>/`.
+Run from the repo root. Edits here are live in every tool immediately, and `git pull` picks up changes made elsewhere. Make the `~/.agents/skills` links even without Codex: the skills find their own files (`estimate.py`, `codex-host.mjs`…) through `~/.agents/skills/<name>/`.
 
 Each skill's `agents/openai.yaml` is Codex's version of `disable-model-invocation`: it runs only when you type it.
+
+The third link is for Google Antigravity (app and IDE; `mkdir -p ~/.gemini/config/skills` first if it isn't there). `/queue` works there with the Codex fallbacks: a local open-questions page, and pasted answers. `/wave` doesn't run in Antigravity yet. Antigravity ignores `disable-model-invocation`, so only each skill's "Use when the user types" description keeps it from running on its own.
 
 ### Outside this repo
 
