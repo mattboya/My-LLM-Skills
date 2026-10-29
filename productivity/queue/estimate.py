@@ -98,6 +98,7 @@ UNIT_CALIBRATION = [           # (wave, items, units, $ from its .cost.md ledger
     ('2026-10-23 friendslop', 20, 30, 280, False),
     ('2026-10-24 friendslop', 25, 44, 581, False),
     ('2026-10-28 friendslop', 20, 27, 294, False),
+    ('2026-10-29 friendslop', 8, 11, 136, False),
 ]
 CODEX = False                  # ponytail: set from --codex in main; a parameter through every caller if it ever matters
 MAX_LANES = 21         # the most lanes a wave has run at once (16 agents at a time)
@@ -118,6 +119,7 @@ CALIBRATION = [        # (wave, longest lane h by this script on its .queue.md s
     ('2026-10-23 friendslop', 9.92, 20, 6.4),
     ('2026-10-24 friendslop', 17.0, 25, 11.35),
     ('2026-10-28 friendslop', 4.17, 20, 6.68),
+    ('2026-10-29 friendslop', 3.0, 8, 4.5),
 ]
 LEAN_CALIBRATION = [   # the same shape, for /wave lean runs
     ('2026-10-02 salesfirst', 6.67, 16, 3.82),
