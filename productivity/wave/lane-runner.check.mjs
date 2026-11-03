@@ -188,5 +188,5 @@ await body({ ...args, seeds: {}, protocol: { ...args.protocol, visualNeedsTests:
 assert(!prompts['impl:U1'].includes('Visual only: no new test') && !prompts['review:U1'].includes('visual-only'), 'a project can turn the visual-only exception off')
 const skill = readFileSync(new URL('./SKILL.md', import.meta.url), 'utf8')
 assert(skill.includes('`PLACEMENT` paragraph from `lane-runner.js`') && src.includes('const PLACEMENT = '), 'planning checkers get the runner\'s placement paragraph')
-assert(/## Land \(`\/wave land`\)/.test(skill) && skill.includes('Never merge it, and never turn on auto-merge') && skill.includes('Merge a pull request or turn on auto-merge, even in `/wave land`'), '/wave land pushes one PR and never merges')
+assert(/## Land \(`\/wave land`\)/.test(skill) && skill.includes('Never merge one, and never turn on auto-merge') && skill.includes('Merge a pull request or turn on auto-merge, even in `/wave land`'), '/wave land pushes one PR per group and never merges')
 assert(/technical notes[^\n]*productFlavour: false|productFlavour: false[^\n]*technical notes/.test(skill), 'handoff puts engineering decisions on the ticket\'s technical notes')

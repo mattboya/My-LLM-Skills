@@ -62,6 +62,7 @@ matches the copy you started from, then copy the new version over it.
 - **Type:** bug | feature
 - **Layer:** frontend | backend | both
 - **Ticket:** — (filled in when the wave is dispatched)
+- **PR:** — (set by /queue promote: the pull request this ships in)
 - **Touches:** path/to/file, path/to/its.test
 - **Now:** what it does today (for a bug: the symptom, and how to see it)
 - **Want:** what it should do instead

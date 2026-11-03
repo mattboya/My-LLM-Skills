@@ -46,7 +46,7 @@ Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In C
 - `summary` → the **Summary** section below only. It reads; it writes nothing.
 - `fit <window> [lean]` → the **Fit** section below only. It reads; it writes nothing.
 - `quick [window]` → step 1, then the **Quick** section below.
-- `promote` → steps 1 and 2, then the **Promote** section below. Write what step 2 settles first (step 4's safe write; steps 3–4 for a follow-up it queues), so Promote reads current entries.
+- `promote [yolo]` → steps 1 and 2, then the **Promote** section below (`yolo`: Promote step 9's yolo mode for this run). Write what step 2 settles first (step 4's safe write; steps 3–4 for a follow-up it queues), so Promote reads current entries.
 - `unblock` → steps 1 and 2, then the **Unblock** section below.
 
 ## Every run, in order
@@ -130,7 +130,8 @@ Print this table as-is (a table, not a code block, so long lines wrap inside the
 | `/queue fit <7h \| 11:30pm>` | The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing. |
 | `/queue fit <window> lean` | The same for a /wave lean run (test-first builders, one final check, no reviews). |
 | `/queue quick [3h \| 11:30pm]` | Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line. |
-| `/queue promote` | Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with. |
+| `/queue promote` | Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), the PRs it lands as, and the model and effort to kick off /wave with. |
+| `/queue promote yolo` | The same, without grouping the work into PRs: the wave lands as one PR. The project's default is the Wave protocol's `PRs:` line (`pr` when absent). |
 | `/queue unblock` | Put the Waiting items on the open-questions page; answers move them to Ready. |
 | `/queue questions` | Rebuild the open-questions page: one page, one link, every open question. It re-checks each one and lists what closed without you, and why. |
 | `/queue answers` | Apply answers from the page, a paste, or chat (every /queue also does this first). |
@@ -264,7 +265,8 @@ Move the Later items that belong in the next wave up to Ready, then report what 
    - `Belongs in Waiting:` any Later item that's really blocked, named the same way;
    - `Next wave: <n> items, about <h>h full (~<w>% of weekly usage, likely <lo>–<hi>%) · about <l>h lean (~<lw>%, likely <llo>–<lhi>%) (was <m>h). For a firmer number before you start: /wave plan.` From the last `--promote` run's `items`, `hours`, `weekly_pct`, `weekly_pct_range`, `lean_hours`, `lean_weekly_pct`, `lean_weekly_pct_range` and `was_hours`. Lean is `/wave lean`: test-first builders and one final check, no reviews. The usage is a range because cost follows the units the planner cuts, and items are only a guess at those; `/wave plan` prices the real units. Add the script's `usage_basis` in brackets after the percents. With `--codex` there is no range yet: leave it out.
    - the **Kick off with** block from step 7;
-   - the **Could go faster** lines from step 8, when there are any.
+   - the **Could go faster** lines from step 8, when there are any;
+   - the **PRs** block from step 9 (PR mode), or `PR mode: yolo, one PR for the whole wave` (yolo).
 7. **Kick-off setting.** Every agent in a wave runs on the model the chat is set to when `/wave` starts, and on its effort unless the plan gives a unit its own (since 2026-10-03), so recommend the one setting that covers every Ready task below the max row (after the moves above). Max-row tasks don't raise it: /wave runs those units at max on their own, so name them in Needed by as "max per unit". Run `estimate.py <queue path> --profile` for a first pass per task, then read each Ready entry and correct the pass where it's wrong, with the reason. It flags words, not meaning, so a label fix on the income page is not "pay math". Rubric, cheapest first:
 
 | Setting (as the app shows it) | A task needs it when |
@@ -299,6 +301,22 @@ Could go faster: `ID` is on the longest chain (<IDs>, about <h>h). Splitting off
 ```
 
 Describe the split-off part in about 15 words, by what it does for users, not by file. When the script's cut is wrong but a nearby cut works (for example a shared test file has to stay with one side), suggest the working cut with its own saving. These are suggestions only: never split an entry from here. Nothing qualifies → no lines.
+
+9. **PRs** (PR mode only). The mode is the `PRs:` line in the queue's Wave protocol Setup: `pr`, or `pr` when there is no line, or `yolo`. `/queue promote yolo` uses yolo for this run. In yolo mode, skip this step: the wave lands as one PR and plans with no grouping. In PR mode, `/wave land` pushes the wave as a stack of pull requests, one per group of related tasks, so group every Ready task now (not only the picks), starting from the lanes in `estimate.py <queue path> --json`:
+   - One PR is one change a teammate can review in one sitting: tasks on the same page, user path or subsystem, or coupled.
+   - Put the PRs in one stack, in the order they merge: a PR goes below every PR whose tasks need its code. PRs can share files: the wave makes the lower PR's units edit a shared file first, which costs some parallel time (the go/no-go says how much). A PR that shares no file with the others and needs none of their code stands alone on main instead.
+   - A task on the rubric's extra or max rows (step 7) never shares a PR with low-risk polish, so the risky diff gets its own review.
+   - Small, low-risk tasks that share nothing go together in one "small fixes" PR.
+   - About one L, three M or six S tasks in a PR. A wave usually lands as 3 to 6 PRs.
+
+   Name each PR by its outcome for users or the team, in a few plain words ("reps see which pieces they sent", not "send service changes"). Write each task's PR into its entry as `- **PR:** <n> <short name>`, where `<n>` is its place in the stack (1 merges first), or `- **PR:** alone <short name>`, in step 5's scratch copy before its safe write. A task with a PR line keeps it unless the picks change its group: then say so. Reply block:
+
+```
+**PRs for the next wave**, merged from 1 up (/wave plan can still move a task when its units couple):
+1. <short name> — `ID`, `ID`: <why together, a few words>
+2. <short name> — `ID`: <why together> (needs 1: <what, a few words>)
+Alone: <short name> — `ID`: <why together>
+```
 
 ## Open-questions page (`/queue questions`)
 
