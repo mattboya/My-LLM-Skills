@@ -32,7 +32,8 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 
 Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In Codex** above, with these changes:
 - The user types `/queue …`. Keep `/queue` and `/wave` as written.
-- **Weekly usage** and the **kick-off setting** come from Claude and Codex runs and don't apply here. Give the hours only, leave out the usage percents and the effort, and say why.
+- **Weekly usage** comes from Claude and Codex runs and doesn't apply here: give the hours only, leave out the usage percents, and say why.
+- **Kick-off setting** (Promote step 7, and the Fit and Quick lines that use it): run `python3 ~/.gemini/config/skills/queue/agy-models.py`. It lists the Gemini models this account can pick and the quota left. Recommend only a listed model, by its picker label: the level in brackets is the effort. Rubric rows map to: small and local → the Flash model (High); well specified → the newest non-Flash Gemini (Medium); cross-cutting, sensitive and max → the newest non-Flash Gemini (High). Max-row tasks count toward the kick-off here, because Antigravity can't raise one unit's effort. The last column compares the next level down (High → Medium). Lean line: one row up, capped at the newest non-Flash Gemini (High). Say "pick it in Antigravity's model picker", add `Gemini quota: <n>% left, refills <time>` under the block, and say the rubric was measured on Claude waves.
 
 ## Input
 

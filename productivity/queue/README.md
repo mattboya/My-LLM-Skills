@@ -50,6 +50,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 | `queue-template.md` | Starting `WORK_QUEUE.md` for a project that doesn't have one yet. |
 | `batch-page-template.html` | The open-questions page: one per queue, at one link, rolled after each wave and by `/queue unblock` and `/queue questions`. Plain-language decision cards that save answers to the page; a question stays until it's answered, settled by later work, or no longer applies. |
 | `estimate.py` | Sizes entries, groups them into parallel lanes by shared files, and estimates wave hours and the share of weekly usage (Claude, or Codex with `--codex`) from past runs. Modes: plain or `--json` (summary), `--fit` (fit and quick), `--candidates` and `--promote` (promote), `--profile` (model and effort), `--splits` (could go faster). Run it with no arguments for usage; `python3 estimate.py --selftest` checks it. |
+| `agy-models.py` | Antigravity only: lists the Gemini models the account can pick and the quota left, from the running app's local server. Promote and /wave's setting check use it. |
 | `batch-page-companion.draft.md` | Draft of a separate "publish the batch page" skill. Not loaded (it isn't named `SKILL.md`). |
 | `agents/openai.yaml` | Codex metadata: runs only when you type `$queue`. |
 
