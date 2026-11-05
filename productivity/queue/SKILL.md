@@ -33,7 +33,6 @@ Claude Code and Codex share this skill (`~/.agents/skills/queue`). In Codex, the
 Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In Codex** above, with these changes:
 - The user types `/queue …`. Keep `/queue` and `/wave` as written.
 - **Weekly usage** and the **kick-off setting** come from Claude and Codex runs and don't apply here. Give the hours only, leave out the usage percents and the effort, and say why.
-- `/wave` doesn't run in Antigravity yet. Where a reply says to start `/wave`, say to start it in Claude Code or Codex.
 
 ## Input
 

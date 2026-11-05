@@ -1,4 +1,4 @@
-// Codex-only bridge: the shared runner schedules jobs; the parent chat spawns native subagents.
+// Job bridge for Codex and Antigravity: the shared runner schedules jobs; the parent chat (Codex) or antigravity-host.py runs them.
 // No model calls or child processes are launched here. See references/codex-native.md.
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, readdirSync, appendFileSync, unlinkSync, openSync, closeSync, realpathSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'

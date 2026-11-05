@@ -1,10 +1,10 @@
 # /wave
 
-A skill for Claude Code (`/wave`) and Codex (`$wave`) that builds everything in a project's `WORK_QUEUE.md` `## Ready` section as one parallel batch (a "wave"), from plan to handoff, with test-driven development and adversarial review on every unit. Pairs with [`/queue`](../queue), which fills the queue.
+A skill for Claude Code (`/wave`), Codex (`$wave`) and Antigravity (`/wave`) that builds everything in a project's `WORK_QUEUE.md` `## Ready` section as one parallel batch (a "wave"), from plan to handoff, with test-driven development and adversarial review on every unit. Pairs with [`/queue`](../queue), which fills the queue.
 
 Manual-only (`disable-model-invocation: true`): it runs when you type `/wave`. Typing it is your opt-in to multi-agent orchestration for the whole run.
 
-In Codex, `$wave` uses native subagents launched from the parent chat, so the app can show their threads and activity. The Codex-only bridge uses the existing lane runner for scheduling and reports; the parent chat stays active to dispatch jobs. [Native dispatch and recovery](references/codex-native.md). Claude Code continues to use the Workflow tool. An explicitly requested Codex CLI run can still use `codex-host.mjs`, with file logs rather than parent-chat native activity.
+In Codex, `$wave` uses native subagents launched from the parent chat, so the app can show their threads and activity. The Codex-only bridge uses the existing lane runner for scheduling and reports; the parent chat stays active to dispatch jobs. [Native dispatch and recovery](references/codex-native.md). Claude Code continues to use the Workflow tool. In Antigravity, `/wave` runs its phases with the `run_workflow` tool, and `antigravity-host.py` runs the same lane runner through the same job bridge. [Antigravity dispatch and recovery](references/antigravity.md). An explicitly requested Codex CLI run can still use `codex-host.mjs`, with file logs rather than parent-chat native activity.
 
 ## What a run does
 
@@ -58,17 +58,20 @@ Only /wave land pushes, and it never merges.
 | `helpers/codex-usage.py` | The share of the Codex weekly limit a run took, from Codex's session logs (Codex only). |
 | `codex-host.mjs` | Runs `lane-runner.js`, or any script written for the Workflow tool, under Codex: one `codex exec` per agent, with a journal for `--resume` and a stall watchdog. |
 | `codex-host.check.mjs` | Stub-codex check of the host. Run `node codex-host.check.mjs` after any host edit. |
-| `native-host.mjs` | Codex-only job bridge: runs the shared scheduler while the parent chat dispatches native subagents; validates and checkpoints their reports. |
+| `native-host.mjs` | Job bridge for Codex and Antigravity: runs the shared scheduler while the parent chat (Codex) or `antigravity-host.py` dispatches the agents; validates and checkpoints their reports. |
 | `native-host.check.mjs` | Bridge checks for ordering, reports, failures and interrupted-run recovery. Run `node native-host.check.mjs`. |
 | `references/codex-native.md` | Parent-chat native dispatch, permissions, concurrency and recovery procedure. |
+| `antigravity-host.py` | Antigravity-only: a `run_workflow` script that runs each `native-host.mjs` job as a workflow agent (up to 16 at once) and hands its report back; resumes a stopped run. |
+| `antigravity-host.check.py` | Bridge checks with stand-in agents: ordering, the correction turn, failures, resume and the lean lane runner. Run `python3 antigravity-host.check.py`. |
+| `references/antigravity.md` | Antigravity dispatch: paths, the unattended-agent proof, planning and lanes with `run_workflow`, recovery. |
 | `prepare-auto.mjs` | Capture existing work with a temporary index and create/reuse an isolated auto checkout; preserve the original source branch/index. |
 | `prepare-auto.check.mjs` | Real-Git checks for dirty startup, source preservation, ignored queue inputs and recovery. |
-| `references/auto-start.md` | Unattended preparation, preflight recovery and handoff for both clients. |
+| `references/auto-start.md` | Unattended preparation, preflight recovery and handoff for every client. |
 | `agents/openai.yaml` | Codex metadata: runs only when you type `$wave`. |
 
 ## Requirements
 
-- Claude Code with the Workflow tool and the `workflow-authoring` skill, or Codex with native subagent tools. Native agents inherit the parent chat's permissions. The legacy CLI host requires the `codex` CLI and uses its own sandbox settings; it is selected only on explicit request.
+- Claude Code with the Workflow tool and the `workflow-authoring` skill, Codex with native subagent tools, or Antigravity with the `run_workflow` tool (its tool execution policy and non-workspace file access must let agents work unattended; see [the reference](references/antigravity.md)). Native agents inherit the parent chat's permissions. The legacy CLI host requires the `codex` CLI and uses its own sandbox settings; it is selected only on explicit request.
 - `node`, `git`, `bash`, `perl` (lock polling), and `gh` for `/wave land`.
 - [`/queue`](../queue) linked at `~/.agents/skills/queue`: `/wave` reads its `SKILL.md` and `estimate.py` from there.
 - The `simplified-technical-english` skill at `~/.agents/skills/simplified-technical-english/`: every text a person reads is written in it and checked with its `ste_check.py`.
@@ -76,4 +79,4 @@ Only /wave land pushes, and it never merges.
 
 ## Checks
 
-Run `node <name>.check.mjs` for each check script after editing the script it covers, and `python3 helpers/codex-usage.py --selftest` after editing that helper.
+Run `node <name>.check.mjs` for each check script after editing the script it covers, `python3 antigravity-host.check.py` after editing the Antigravity bridge, and `python3 helpers/codex-usage.py --selftest` after editing that helper.

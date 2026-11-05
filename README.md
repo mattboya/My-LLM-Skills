@@ -79,7 +79,7 @@ Run from the repo root. Edits here are live in every tool immediately, and `git 
 
 Each skill's `agents/openai.yaml` is Codex's version of `disable-model-invocation`: it runs only when you type it.
 
-The third link is for Google Antigravity (app and IDE; `mkdir -p ~/.gemini/config/skills` first if it isn't there). `/queue` works there with the Codex fallbacks: a local open-questions page, and pasted answers. `/wave` doesn't run in Antigravity yet. Antigravity ignores `disable-model-invocation`, so only each skill's "Use when the user types" description keeps it from running on its own.
+The third link is for Google Antigravity (app and IDE; `mkdir -p ~/.gemini/config/skills` first if it isn't there). `/queue` works there with the Codex fallbacks: a local open-questions page, and pasted answers. `/wave` runs there through Antigravity's `run_workflow` tool; it needs the `~/.agents/skills` links too. Antigravity ignores `disable-model-invocation`, so only each skill's "Use when the user types" description keeps it from running on its own.
 
 ### Outside this repo
 
@@ -92,7 +92,7 @@ The third link is for Google Antigravity (app and IDE; `mkdir -p ~/.gemini/confi
 
 ## Requirements
 
-- Claude Code (with the Workflow tool for `/wave`), or Codex with native subagent tools.
+- Claude Code (with the Workflow tool for `/wave`), Codex with native subagent tools, or Antigravity with the `run_workflow` tool.
 - `python3`, `node`, `git`, `bash` and `perl`, plus `gh` for `/wave land`.
 - Stakeholder pages that save answers need Claude's Artifact tools. In Codex the page is a local file, and people paste their answers back.
 
@@ -110,4 +110,8 @@ python3 productivity/wave/helpers/codex-usage.py --selftest
 
 ```bash
 cd productivity/wave && for f in *.check.mjs; do node "$f" || break; done
+```
+
+```bash
+python3 productivity/wave/antigravity-host.check.py
 ```

@@ -1,6 +1,6 @@
 ---
 name: wave
-description: Use when the user types /wave or $wave to work WORK_QUEUE.md as one parallel batch; Codex uses native subagents, Claude Code uses workflows.
+description: Use when the user types /wave or $wave to work WORK_QUEUE.md as one parallel batch; Codex uses native subagents, Claude Code and Antigravity use workflows.
 argument-hint: |-
   [ITEM-IDs...]         plan, one go/no-go, then build Ready
   auto [ITEM-IDs...]    unattended: preserves existing work, prepares the run, takes recommended answers and Go
@@ -16,7 +16,7 @@ disable-model-invocation: true
 
 One command runs a batch of queued work, from plan to handoff, at ultracode quality.
 
-**Invoking /wave or $wave is the user's explicit opt-in to multi-agent orchestration for this whole run.** In Codex, first read **In Codex** below and use native subagents for every substantive phase. In Claude Code, load `workflow-authoring`, then run every substantive phase (the planning checks, the lanes, the reviews) with the Workflow tool. The quality bar is ultracode's: the most exhaustive, correct result, not the fastest or cheapest; token cost is not a constraint; verify adversarially before claiming anything. Every agent runs on the model the user set in the app before `/wave`, and on its effort, except where the plan sets a unit's own effort (step 1.4) and the lane gate keepers, which run at medium; `/queue promote` recommends the setting. In Claude Code, agents start as the slim types in `~/.claude/agents/` (`wave-builder`, `wave-checker`, `wave-planner`): only the tools their role uses, so each starts at 28–39k tokens instead of about 78k (measured 2026-10-03).
+**Invoking /wave or $wave is the user's explicit opt-in to multi-agent orchestration for this whole run.** In Codex, first read **In Codex** below and use native subagents for every substantive phase. In Antigravity, read **In Codex** and **In Antigravity** below and use `run_workflow` for every substantive phase. In Claude Code, load `workflow-authoring`, then run every substantive phase (the planning checks, the lanes, the reviews) with the Workflow tool. The quality bar is ultracode's: the most exhaustive, correct result, not the fastest or cheapest; token cost is not a constraint; verify adversarially before claiming anything. Every agent runs on the model the user set in the app before `/wave`, and on its effort, except where the plan sets a unit's own effort (step 1.4) and the lane gate keepers, which run at medium; `/queue promote` recommends the setting. In Claude Code, agents start as the slim types in `~/.claude/agents/` (`wave-builder`, `wave-checker`, `wave-planner`): only the tools their role uses, so each starts at 28–39k tokens instead of about 78k (measured 2026-10-03).
 
 **Test-driven development is mandatory for every slice.** Red, then green, then refactor: the test is written first and seen failing for the right reason, with that output saved, before any production code. Reviewers fail a unit that has no red-first evidence, and revert every fix to prove its test goes red. `lane-runner.js` encodes this; never write a runner or an agent prompt without it.
 
@@ -44,7 +44,14 @@ Claude Code and Codex share this skill (`~/.agents/skills/wave`). In Codex, thes
 
 ## In Antigravity
 
-Not supported yet. Antigravity has no Workflow tool, and `native-host.mjs` has not been tried with its `invoke_subagent`. `/wave help` works as written. For any other `/wave`, say this, plan and build nothing, and tell the user to run it in Claude Code or Codex.
+Antigravity loads this skill from `~/.gemini/config/skills/wave`. Follow **In Codex** above, with these changes; everything else, the quality bar and TDD included, applies as written.
+- The user types `/wave …`. Keep `/wave` and `/queue` as written.
+- **Dispatch:** read and follow [references/antigravity.md](references/antigravity.md) before planning, not codex-native.md. Skip `workflow-authoring`; read Antigravity's built-in `run-workflow` skill. Planning workflows are `run_workflow` Python scripts. The lanes run `lane-runner.js` unchanged through `antigravity-host.py`, which `run_workflow` runs. Wave 0 step 2's slim-type proof becomes the reference's unattended-agent proof.
+- **Model and effort:** every agent runs on the model this conversation is set to. Antigravity has no per-agent effort: record unit and gate-keeper efforts as a deviation in the wave doc.
+- **coAuthor:** the protocol's co-author line. If it names none, ask at the go/no-go (recommend `Co-Authored-By: Antigravity <noreply@google.com>`; auto takes it) and add the answer to the protocol's Setup.
+- **Setting check** (go/no-go): name the model Antigravity is set to. The estimates, review failure rates and the risk line in step 1.4 come from Claude waves: say so.
+- **Estimate and run cost:** hours only. `estimate.py`'s usage percents, `wave-cost.py` and `codex-usage.py` don't apply here: leave them out and say why. In Results, take agent count and hours from the run's jobs, journal and `attempts.jsonl`. Skip **Calibrate the estimator**: its rows are Claude runs. There is no memory step: put the unpushed state and deploy prerequisites in the wrap-up.
+- **Resume:** the reference's recovery procedure: the same `run_workflow` call with `"resume": true`.
 
 ## Input
 

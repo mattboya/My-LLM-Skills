@@ -1,6 +1,6 @@
 # Unattended startup and recovery
 
-Read this when `auto` is in the invocation, in either Codex or Claude Code. `auto` authorizes routine local preparation and repair as well as recommended answers and Go. An uncommitted working tree is input to preserve, not a reason to end the run or ask the user to commit it.
+Read this when `auto` is in the invocation, in Claude Code, Codex or Antigravity. `auto` authorizes routine local preparation and repair as well as recommended answers and Go. An uncommitted working tree is input to preserve, not a reason to end the run or ask the user to commit it.
 
 ## Choose the run checkout before planning
 
