@@ -8,8 +8,8 @@ Keep each block self-contained. Tighten it after every wave with what the wave t
 
 - **Branch:** {{BRANCH}}. **Author:** {{GIT_AUTHOR or "any"}}.
 - **Isolation:** one shared checkout. No worktrees, no branches.
-- **PRs:** {{pr | yolo}}. `pr` (the default): `/queue promote` groups the work into a stack of PRs by topic, the build makes shared-file edits follow the stack (some parallel time lost), and `/wave land` opens one PR per group. `yolo`: no grouping and no waits for it; `/wave land` opens one PR for the whole wave. `pr` when a team reviews the PRs, `yolo` for solo work. `/queue promote yolo` and `/wave yolo` use yolo for one run.
-- **Push:** only through `/wave land`, after the user types it, as the PRs the mode sets; the user merges each with a merge commit. Agents never push.
+- **PRs:** {{pr | yolo}}{{; the size limit for one PR; paths whose changes ship as a PR of their own}}. `pr` (the default): `/wave land` opens one PR per story. A PR starts on main, so it merges in any order, unless its story needs another story's code: then it stacks on that story's PR. A story over the size limit lands as a stack of its parts. Land runs the Gates once per PR. `yolo`: one PR for the whole wave. `pr` when a team reviews the PRs, `yolo` for solo work. `/wave yolo` uses yolo for one run.
+- **Push:** only through Land, at the end of `/wave auto` or when the user types `/wave land`, as the PRs the mode sets; the user merges each with a merge commit. Agents never push.
 - **Tickets:** {{TRACKER RULES — which project, assignee, sprint, lifecycle (the move at dispatch, at the handoff and at the merge); or "none: the queue ID is the commit key, decoded in QUEUE_IDS.txt"}}. Queue IDs never go into the tracker, nor into commits when there is one.
 - **Helpers:** `~/.agents/skills/wave/helpers/{wave-commit.sh,lock.sh}`{{, plus any project snapshot helpers}}. Wave 0 copies them into `{SP}/wave/` and writes `{SP}/wave/wave.env` with `WAVE_REPO={REPO}`, `WAVE_BRANCH={{BRANCH}}`{{, WAVE_AUTHOR=...}}.
 - **Deploy notes to carry into the handoff:** {{restarts, migrations, anything a human must do before or after release}}.

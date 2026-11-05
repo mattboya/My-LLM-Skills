@@ -13,9 +13,9 @@ In Codex, `$wave` uses native subagents launched from the parent chat, so the ap
 3. **Go/no-go: the only stop.** One message with scope, critical path, risks, estimate and up to three questions only you can answer, then Go / Go with changes / Stop.
 4. **Run.** Wave 0 checks the prepared checkout and baseline gates, files tickets per the protocol, and arms a stall watchdog. Manual mode stops for a dirty tree or red baseline; auto preserves source work and diagnoses failures before continuing verifiable units. Then `lane-runner.js` schedules parallel lanes through the client's adapter: each unit is written test-first (red output saved before any production code), reviewed adversarially with revert-proofs, and fixed up to two rounds. Every committed test runs on every CI push, so each test goes on the cheapest layer that can fail: rules and branches in the non-browser suites, a CI browser test only for a user path that protects data, money, access or a sent message, and layout or motion checks as uncommitted red-first proofs. A project's `### Test tiers` block can change those lines. Cross-lane "journey" reviews follow shared user paths, with a skeptic re-checking each high and medium finding (lows go to the queue unchecked), and final gates run on the quiet tree. A test that fails, then passes when re-run alone, with the problem in the test, goes to the queue's Ready list instead of holding the run open.
 5. **Handoff.** Tickets get their review plans, shipped entries are harvested and deleted from the queue, leftover findings become `## Later` entries and flaky tests become `## Ready` entries, the open-questions page is updated in place with the wave's decisions, and the wave doc gets its Results, including each suite's test count and minutes before and after (what the wave adds to every CI run). It also writes, for `/wave land`, a commit plan and a description for each PR. The run's hours and cost are added to `estimate.py`'s calibration rows, and a miss over 30% is reported as a refit to do.
-6. **Land (`/wave land`, when you type it).** In PR mode (the default; set per project by the protocol's `PRs:` line), pushes the wave as one PR per group of related tickets (`/queue promote` proposes the groups, the plan settles them), each built on a new branch from the wave's commits: one commit per unit with its review fixes folded in, so a teammate reviews a few engineer-sized commits instead of every step. Each PR's description has what changes, the design calls and the tests. You merge them with a merge commit; `/wave land` again moves the merged PRs' tickets, and once all are in, levels local main with origin. In yolo mode (`/wave yolo`, or `PRs: yolo` for a solo project) nothing is grouped or held back for PR order, and the wave lands as one PR with its commits as they are.
+6. **Land (at the end of `/wave auto`, or `/wave land` when you type it).** In PR mode (the default; set per project by the protocol's `PRs:` line), pushes the wave as one PR per story, each built on a new branch from the wave's commits: one commit per unit with its review fixes folded in, so a teammate reviews a few engineer-sized commits instead of every step. A PR starts on main, so it merges in any order, unless its story needs another story's code: then it stacks on that story's PR. A story over the project's size limit lands as a stack of its parts. Each PR's description has what changes, the design calls and the tests. You merge them with a merge commit; `/wave land` again moves the merged PRs' tickets, and once all are in, levels local main with origin. In yolo mode (`/wave yolo`, or `PRs: yolo` for a solo project) the wave lands as one PR with its commits as they are.
 
-Only `/wave land` pushes, and nothing merges a PR or moves a ticket to Done except as that step says.
+Only Land pushes, and nothing merges a PR or moves a ticket to Done except as that step says.
 
 ## Commands
 
@@ -27,8 +27,8 @@ Only `/wave land` pushes, and nothing merges a PR or moves a ticket to Done exce
 /wave lean [ITEM-ID…]      build only: test-first builders, one final check, no reviews (~a third of the usage)
 /wave auto lean [ITEM-ID…] lean and unattended
 /wave plan [ITEM-ID…]      plan only: shows the estimate and questions, saves the plan; then /wave auto runs it without stopping
-/wave yolo [ITEM-IDs]      no PR grouping or PR-order waits: fastest build, lands as one PR (solo work)
-/wave land                 push the finished wave as its PRs (one per group, or one in yolo); after you merge them, move their tickets
+/wave yolo [ITEM-IDs]      lands as one PR, not one per story (solo work)
+/wave land                 push the finished wave as its PRs (one per story, or one in yolo); after you merge them, move their tickets
 /wave help                 this list
 
 Automatic, no argument needed:
@@ -39,7 +39,7 @@ Automatic, no argument needed:
 
 Model and effort come from the app setting when you type /wave; /queue promote recommends one.
 The plan can run single units higher or lower, and units below the risky rows skip their own review.
-Only /wave land pushes, and it never merges.
+Only Land pushes (at the end of /wave auto, or /wave land), and it never merges.
 ```
 
 **Auto mode** prepares and recovers the run without another user turn, answers its own go/no-go and logs the decisions. Uncommitted work is captured into an isolated local checkout; the source files, staging and branch history are preserved. Missing protocol details use conservative local defaults. Baseline failures are diagnosed/repaired, and independent verifiable work continues. Empty Ready or unresolved blockers that prevent all scoped work are reported honestly. Existing holds, stakeholder disagreements and external posts remain in "Held for you". See [auto startup and recovery](references/auto-start.md).
