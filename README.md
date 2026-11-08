@@ -6,8 +6,9 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
 |---|---|
 | [`productivity/queue`](productivity/queue) | `/queue`: spec a fix or feature from the code into a project's `WORK_QUEUE.md`, plus summary, time-fit, quick-wins, promote, unblock and stakeholder-answer commands. |
 | [`productivity/wave`](productivity/wave) | `/wave`: build everything in the queue's Ready section as one parallel, test-first, adversarially reviewed batch. |
+| [`gamedev/blender-bpy`](gamedev/blender-bpy) | Rules for fast headless Blender (`bpy`/`bmesh`) scripts and AI-mesh cleanup: no `bpy.ops` in loops, NumPy `foreach_get`/`foreach_set`, UV-safe decimation, Blender 4.1+ smoothing, one-process batching, image prep for image-to-3D, `UCX_` collision hulls. |
 
-Both skills are manual-only: they run when you type them, never on their own.
+`queue` and `wave` are manual-only: they run when you type them, never on their own. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup.
 
 ## How the two fit together
 
@@ -60,6 +61,8 @@ productivity/
     helpers/                commit, lock and run-cost helpers
     references/             Codex dispatch and auto-start procedures
     protocol-template.md    template for a project's ## Wave protocol
+gamedev/
+  blender-bpy/               Blender bpy/bmesh and 3D asset optimization rules (SKILL.md only)
 docs/superpowers/plans/     implementation plans for past changes to these skills
 ```
 
@@ -73,7 +76,14 @@ for s in queue wave; do
   ln -sfn "$PWD/productivity/$s" ~/.agents/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.gemini/config/skills/$s
 done
+for s in blender-bpy; do
+  ln -sfn "$PWD/gamedev/$s" ~/.claude/skills/$s
+  ln -sfn "$PWD/gamedev/$s" ~/.agents/skills/$s
+  ln -sfn "$PWD/gamedev/$s" ~/.gemini/config/skills/$s
+done
 ```
+
+On Windows without Developer Mode, `ln -s` fails with "Operation not permitted". Use a directory junction instead (no admin needed): `New-Item -ItemType Junction -Path $HOME\.claude\skills\<name> -Target <repo>\<area>\<name>` in PowerShell.
 
 Run from the repo root. Edits here are live in every tool immediately, and `git pull` picks up changes made elsewhere. Make the `~/.agents/skills` links even without Codex: the skills find their own files (`estimate.py`, `codex-host.mjs`…) through `~/.agents/skills/<name>/`.
 
