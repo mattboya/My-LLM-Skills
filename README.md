@@ -7,8 +7,9 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
 | [`productivity/queue`](productivity/queue) | `/queue`: spec a fix or feature from the code into a project's `WORK_QUEUE.md`, plus summary, time-fit, quick-wins, promote, unblock and stakeholder-answer commands. |
 | [`productivity/wave`](productivity/wave) | `/wave`: build everything in the queue's Ready section as one parallel, test-first, adversarially reviewed batch. |
 | [`gamedev/blender-bpy`](gamedev/blender-bpy) | Rules for fast headless Blender (`bpy`/`bmesh`) scripts and AI-mesh cleanup: no `bpy.ops` in loops, NumPy `foreach_get`/`foreach_set`, UV-safe decimation, Blender 4.1+ smoothing, one-process batching, image prep for image-to-3D, `UCX_` collision hulls. |
+| [`gamedev/rtx3090-image-to-3d`](gamedev/rtx3090-image-to-3d) | Turn a concept image into a game-ready prop (FBX/GLB, LODs, `UCX_` collision, textures) through the local image-to-3D server at `F:\Code\ai-3d-pipeline` on the RTX 3090: check the server, prep the image, submit, monitor, verify. Set up for one PC; see [on another computer](#rtx3090-image-to-3d-on-another-computer). |
 
-`queue` and `wave` are manual-only: they run when you type them, never on their own. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup.
+`queue` and `wave` are manual-only: they run when you type them, never on their own. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup. `rtx3090-image-to-3d` loads on its own when you ask for a 3D model from an image; it needs the pipeline's server running (`start_server.bat`), and the skill starts it if it is down.
 
 ## How the two fit together
 
@@ -63,6 +64,7 @@ productivity/
     protocol-template.md    template for a project's ## Wave protocol
 gamedev/
   blender-bpy/               Blender bpy/bmesh and 3D asset optimization rules (SKILL.md only)
+  rtx3090-image-to-3d/       drives the local image-to-3D server in F:\Code\ai-3d-pipeline (SKILL.md only)
 docs/superpowers/plans/     implementation plans for past changes to these skills
 ```
 
@@ -76,7 +78,7 @@ for s in queue wave; do
   ln -sfn "$PWD/productivity/$s" ~/.agents/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.gemini/config/skills/$s
 done
-for s in blender-bpy; do
+for s in blender-bpy rtx3090-image-to-3d; do
   ln -sfn "$PWD/gamedev/$s" ~/.claude/skills/$s
   ln -sfn "$PWD/gamedev/$s" ~/.agents/skills/$s
   ln -sfn "$PWD/gamedev/$s" ~/.gemini/config/skills/$s
@@ -99,6 +101,22 @@ The third link is for Google Antigravity (app and IDE; `mkdir -p ~/.gemini/confi
 |---|---|---|
 | `wave-builder`, `wave-checker`, `wave-planner` agent types | `~/.claude/agents/wave-*.md` | Claude Code only. Slim agents with just the tools each role needs, so each starts at 28–39k tokens instead of about 78k. Without them `/wave` falls back to general agents. |
 | `simplified-technical-english` skill | `~/.agents/skills/simplified-technical-english/` | Every text a person reads (go/no-go, wave doc, tickets, open-questions page, wrap-up) is written in it and run through its `ste_check.py`. |
+
+### `rtx3090-image-to-3d` on another computer
+
+This skill was built for one Windows PC with an RTX 3090, and it is set up for that PC: it expects the pipeline in `F:\Code\ai-3d-pipeline` and its server on `http://127.0.0.1:8000`. The skill only drives the pipeline. The image-to-3D server, its Python client and the Blender clean-up are a separate project that is not in this repo, so another computer needs its own copy:
+
+1. **Hardware and tools:** Windows 10/11, an NVIDIA GPU with 24 GB of VRAM, Python 3.10, Blender, the Visual Studio "Desktop development with C++" workload, and at least 20 GB of disk for the model weights.
+2. **Install the pipeline:** copy the project to that computer and run `powershell -ExecutionPolicy Bypass -File setup_env.ps1` in its folder. The installer builds the CUDA texture extension for the 3090 (`TORCH_CUDA_ARCH_LIST = "8.6"`). For another card, change that value to the card's compute capability first (for example `8.9` for an RTX 4090).
+3. **Link the skill** as shown in Install above.
+4. **Point the skill at the pipeline** if it is not in `F:\Code\ai-3d-pipeline`, then restart Claude Code or Codex:
+   ```powershell
+   setx ASSET_PIPELINE_HOME "D:\path\to\ai-3d-pipeline"
+   setx ASSET_PIPELINE_URL "http://127.0.0.1:8000"   # only if the server uses another port (API_PORT in the pipeline's .env)
+   ```
+   The skill uses these in place of its built-in values, so the same `SKILL.md` works on every computer.
+
+Using the 3090 from another computer over the network is not set up. The server listens only on its own PC, has no login, and reads the images and writes the assets on its own disk.
 
 ## Requirements
 
