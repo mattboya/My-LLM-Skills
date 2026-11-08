@@ -125,6 +125,7 @@ CALIBRATION = [        # (wave, longest lane h by this script on its .queue.md s
     ('2026-11-04 friendslop', 4.17, 14, 5.95),
     ('2026-11-05 friendslop', 3.0, 12, 4.55),
     ('2026-11-07 friendslop', 17.67, 28, 14.8),
+    ('2026-11-08 salesfirst', 8.58, 14, 4.8),
 ]
 LEAN_CALIBRATION = [   # the same shape, for /wave lean runs
     ('2026-10-02 salesfirst', 6.67, 16, 3.82),
