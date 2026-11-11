@@ -7,7 +7,7 @@ Usage: wave-cost.py --session <id>[,<id>] [--project-dir DIR] [--prev LAST.cost.
   --project-dir  ~/.claude/projects/<slug>; default: derived from the current directory
   --prev         the previous run's ledger: adds a change column and flags roles that got dearer
   --ledger       write this report plus its numbers (a json block) for the next run to compare against;
-                 name it <wave doc stem>.cost.md so the wave-doc ignore pattern covers it
+                 name it <wave doc stem>.cost.md so it counts as a queue file (queue skill, Queue files in git)
 
 Dollars are API list prices (cache reads included), so they compare runs and roles; they are not a bill.
 A role is an agent label's first word (impl, review, journey, plan, handoff...). Per unit = per builder.

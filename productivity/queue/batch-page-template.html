@@ -32,14 +32,22 @@
        7 of 85 of these. A fold opens itself when its card is changed or answers differ.
     6. CLOSED WITHOUT YOU: one line per card this roll closed with no answer, and why (built since, no longer
        applies, settled by another answer). Only this roll's closures.
-    Parts 1 to 4 start blank: the reader picks. Only part 5 starts filled in with the built letter
+    Parts 1 to 4 start blank: the reader picks. Part 5, and part 1's rare cases (below), start filled in
     (Matt, 2026-10-01). Parts 2 and 5 flag the built option "Built"; a pick other than the built letter
     is a follow-up. One decision, one card: match by data-entry plus title. Delete a part with nothing in it.
+  - HOW OFTEN: every card in parts 1, 2 and 5 has data-often="1".."10", how many users meet the situation the
+    question is about (the scale is in the queue skill), shown as "How often n/10" in its qmeta, and in the
+    summary of a folded card. Parts 1, 2 and each wave group of part 5 list cards highest first (ties: lower
+    Q number first), with no theme headings; the theme tag on each card names its theme.
+    Part 1 cards rated 1 to 5 go last, in the part's .qrare block, each folded like a part 5 card: the script
+    fills in the recommendation, and they don't count as questions to answer. Matt answers only 6 to 10, and
+    takes the recommendation on the rest, but still wants every option and the why on the card (2026-11-07).
+    Part 2 cards always ask, whatever their rating (Matt, 2026-11-07). Parts 3 and 4 have no rating.
   - Copy each block's situation, why-it-matters and options onto a card; each card stands alone.
     data-entry = the queue entry the question belongs to. Never write "(as built)" in an option
     label: the script adds the Built flag.
-  - Within parts 1 to 4, and within each wave group, group questions by theme (Product, Design, Wording,
-    Engineering, Cost, Legal/Privacy...), never by person.
+  - Part 4 groups its cards by theme (Product, Design, Wording, Engineering, Cost, Legal/Privacy...),
+    never by person.
   - Latest run: the newest wave's report. A wave's roll replaces it; other rolls keep it as it is.
   Publish privately with icon "list" and capabilities (an update keeps them):
     {"db": {"rules": [{"path": "answers", "read": "view", "write": "admin"},
@@ -142,6 +150,8 @@ a:focus-visible,summary:focus-visible,button:focus-visible,.qopt input:focus-vis
 .q-keep{font:600 13px "IBM Plex Sans",sans-serif;padding:6px 11px;border-radius:4px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer}
 .q-keep:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .closed li{margin:8px 0}
+.often{font:600 11px "IBM Plex Mono",monospace;padding:2px 7px;border-radius:3px;background:var(--code);color:var(--ink);white-space:nowrap}
+.qrare{margin:26px 0 0}
 footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid var(--rule);padding-top:14px}
 @media (max-width:640px){h1{font-size:31px}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
@@ -156,6 +166,7 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
 
 <section class="stats" aria-label="At a glance">
 <div class="stat"><span class="num">{{N_OPEN}}</span><span class="lbl">need you before they're built</span></div>
+<div class="stat"><span class="num">{{N_RARE}}</span><span class="lbl">rare cases, building my recommendation</span></div>
 <div class="stat"><span class="num">{{N_BUILT_DIFF}}</span><span class="lbl">built differently, worth a read</span></div>
 <div class="stat"><span class="num">{{N_MERGE}}</span><span class="lbl">ready to merge</span></div>
 <div class="stat"><span class="num">{{N_WAITING}}</span><span class="lbl">waiting items to decide</span></div>
@@ -163,19 +174,17 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
 </section>
 
 <section id="questions">
-<p class="lede">Every open question from every run is on this page, and this link stays the same. A question stays here until you answer it, later work settles it, or it no longer applies. Each card stands on its own.</p>
+<p class="lede">Every open question from every run is on this page, and this link stays the same. A question stays here until you answer it, later work settles it, or it no longer applies. Each card stands on its own. To clear a pick, click it again.</p>
 <div class="qbar" role="group" aria-label="Answer tools"><button type="button" id="q-fill">Fill in my recommendations</button><button type="button" id="q-clear">Reset</button><span id="q-count" aria-live="polite"></span></div>
 <p id="q-mode" class="qmode"></p>
 
 <!-- PART 1. Delete a part's h2, lede and groups when it has no cards. -->
 <h2 id="part-open">Needs you before it's built</h2>
-<p class="lede">Answer these to move queued work forward. Each card decides how something that hasn't been built will work, and the next run builds your answer. Skip one and it's built with my recommendation when its item is picked up.</p>
-<!-- One .qgroup per THEME. Omit empty themes. -->
-<div class="qgroup"><h3>{{THEME}}</h3>
-<!-- data-q: permanent (header comment). data-rec: recommended letter. data-built: empty in this part. -->
-<fieldset class="qcard" id="q-Q1" data-q="Q1" data-rec="A" data-built="" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
+<p class="lede">Answer these to move queued work forward. Each card decides how something that hasn't been built will work, and the next run builds your answer. The questions most users will meet come first. Skip one and it's built with my recommendation when its item is picked up.</p>
+<!-- Cards rated 6 to 10, highest first. data-q: permanent (header comment). data-rec: recommended letter. data-built: empty in this part. -->
+<fieldset class="qcard" id="q-Q1" data-q="Q1" data-rec="A" data-built="" data-often="{{OFTEN}}" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
 <legend><span class="qnum">Q1</span><span class="qtitle">{{QUESTION}}</span></legend>
-<div class="qmeta"><span class="tag">{{THEME}}</span><span><strong>Built as:</strong> Not built yet. {{ENTRY_ID}} is in {{READY_WAITING_OR_LATER}}; it's built with A unless you pick otherwise.</span></div>
+<div class="qmeta"><span class="tag">{{THEME}}</span><span class="often" title="How many users meet this: 10 is every user, 1 is an extreme edge case">How often {{OFTEN}}/10</span><span><strong>Built as:</strong> Not built yet. {{ENTRY_ID}} is in {{READY_WAITING_OR_LATER}}; it's built with A unless you pick otherwise.</span></div>
 <div class="qsit"><p>{{SITUATION}}</p></div>
 <p><strong>Why it matters.</strong> {{WHY_IT_MATTERS}}</p>
 <div class="qopts">
@@ -186,15 +195,31 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
 <label class="qnote" for="n-Q1">Note (optional)</label><textarea class="qnotebox" id="n-Q1" rows="2" placeholder="Conditions, wording, or a different answer"></textarea>
 <p class="qwho" hidden></p>
 </fieldset>
+<!-- Cards rated 1 to 5, highest first, each folded. The summary is one line: number, question, rating and the recommended pick. Delete the block when it has none. -->
+<div class="qrare"><h3>Rare cases: I'm taking my recommendation</h3>
+<p class="lede">Few users will meet these, so you don't need to answer them: each is already set to my recommendation, and that's what gets built. Open one to see every option and why I picked mine, or to change it.</p>
+<details class="qfold"><summary><span class="qnum">Q6</span><span class="qtitle">{{QUESTION}}</span><span class="meta">How often {{OFTEN}}/10 · My pick: A, {{OPTION_A}}</span></summary>
+<fieldset class="qcard" id="q-Q6" data-q="Q6" data-rec="A" data-built="" data-often="{{OFTEN}}" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
+<legend><span class="qnum">Q6</span><span class="qtitle">{{QUESTION}}</span></legend>
+<div class="qmeta"><span class="tag">{{THEME}}</span><span class="often" title="How many users meet this: 10 is every user, 1 is an extreme edge case">How often {{OFTEN}}/10</span><span><strong>Built as:</strong> Not built yet. {{ENTRY_ID}} is in {{READY_WAITING_OR_LATER}}; it's built with A unless you pick otherwise.</span></div>
+<div class="qsit"><p>{{SITUATION}}</p></div>
+<p><strong>Why it matters.</strong> {{WHY_IT_MATTERS}}</p>
+<div class="qopts">
+<label class="qopt" for="r-Q6-A"><input type="radio" id="r-Q6-A" name="q-Q6" value="A" data-label="{{OPTION_A}}"><span class="ok">A</span><span class="ot"><strong>{{OPTION_A}}</strong> <span class="recflag">Recommended</span><span class="eff">{{EFFECT_A}}</span></span></label>
+<label class="qopt" for="r-Q6-B"><input type="radio" id="r-Q6-B" name="q-Q6" value="B" data-label="{{OPTION_B}}"><span class="ok">B</span><span class="ot"><strong>{{OPTION_B}}</strong><span class="eff">{{EFFECT_B}}</span></span></label>
+</div>
+<p class="qrec"><strong>My recommendation: A.</strong> {{WHY_RECOMMENDED}}</p>
+<label class="qnote" for="n-Q6">Note (optional)</label><textarea class="qnotebox" id="n-Q6" rows="2" placeholder="Conditions, wording, or a different answer"></textarea>
+<p class="qwho" hidden></p>
+</fieldset></details>
 </div>
 
-<!-- PART 2. Same card shape; data-built = the letter that shipped, which is NOT data-rec. -->
+<!-- PART 2. Same card shape; data-built = the letter that shipped, which is NOT data-rec. Highest data-often first; every card asks, whatever its rating. -->
 <h2 id="part-diff">Built differently from my recommendation</h2>
 <p class="lede">These shipped a different way than the card recommends. Each "Built as" line says why. Nothing is filled in here. Pick the option marked Built to keep it, or another one to have it changed (that becomes a follow-up).</p>
-<div class="qgroup"><h3>{{THEME}}</h3>
-<fieldset class="qcard" id="q-Q2" data-q="Q2" data-rec="A" data-built="B" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
+<fieldset class="qcard" id="q-Q2" data-q="Q2" data-rec="A" data-built="B" data-often="{{OFTEN}}" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
 <legend><span class="qnum">Q2</span><span class="qtitle">{{QUESTION}}</span></legend>
-<div class="qmeta"><span class="tag">{{THEME}}</span><span><strong>Built as:</strong> {{BUILT_AS}}</span></div>
+<div class="qmeta"><span class="tag">{{THEME}}</span><span class="often" title="How many users meet this: 10 is every user, 1 is an extreme edge case">How often {{OFTEN}}/10</span><span><strong>Built as:</strong> {{BUILT_AS}}</span></div>
 <div class="qsit"><p>{{SITUATION}}</p></div>
 <p><strong>Why it matters.</strong> {{WHY_IT_MATTERS}}</p>
 <div class="qopts">
@@ -205,7 +230,6 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
 <label class="qnote" for="n-Q2">Note (optional)</label><textarea class="qnotebox" id="n-Q2" rows="2" placeholder="Conditions, wording, or a different answer"></textarea>
 <p class="qwho" hidden></p>
 </fieldset>
-</div>
 
 <!-- PART 3. Side-branch work waiting for a merge decision. -->
 <h2 id="part-merge">Ready to merge</h2>
@@ -244,16 +268,15 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
 </fieldset>
 </div>
 
-<!-- PART 5. data-built = data-rec. One .qwave per wave, newest first. Each card is folded; the summary is one line: number, question, and BUILT_AS_SHORT (a few words). -->
+<!-- PART 5. data-built = data-rec. One .qwave per wave, newest first; in each, highest data-often first. Each card is folded; the summary is one line: number, question, rating and BUILT_AS_SHORT (a few words). -->
 <h2 id="part-built">Built as recommended</h2>
-<p class="lede">These shipped the way I recommended. Skim a wave's list and open a card only to change it; picking another option becomes a follow-up. When you've looked through a wave, press its button: the cards you didn't change are kept as built. Until then, they stay open.</p>
+<p class="lede">These shipped the way I recommended. Skim a wave's list, most users first, and open a card only to change it; picking another option becomes a follow-up. When you've looked through a wave, press its button: the cards you didn't change are kept as built. Until then, they stay open.</p>
 <div class="qwave" data-wave="{{WAVE}}">
 <div class="qwavehead"><h3>Wave {{WAVE}}</h3><button type="button" class="q-keep">I looked: keep these as built</button></div>
-<div class="qgroup"><h4>{{THEME}}</h4>
-<details class="qfold"><summary><span class="qnum">Q3</span><span class="qtitle">{{QUESTION}}</span><span class="meta">Built as: {{BUILT_AS_SHORT}}</span></summary>
-<fieldset class="qcard" id="q-Q3" data-q="Q3" data-rec="A" data-built="A" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
+<details class="qfold"><summary><span class="qnum">Q3</span><span class="qtitle">{{QUESTION}}</span><span class="meta">How often {{OFTEN}}/10 · Built as: {{BUILT_AS_SHORT}}</span></summary>
+<fieldset class="qcard" id="q-Q3" data-q="Q3" data-rec="A" data-built="A" data-often="{{OFTEN}}" data-entry="{{ENTRY_ID}}" data-from="{{FROM}}" data-theme="{{THEME}}" data-title="{{QUESTION}}">
 <legend><span class="qnum">Q3</span><span class="qtitle">{{QUESTION}}</span></legend>
-<div class="qmeta"><span class="tag">{{THEME}}</span><span><strong>Built as:</strong> {{BUILT_AS}}</span></div>
+<div class="qmeta"><span class="tag">{{THEME}}</span><span class="often" title="How many users meet this: 10 is every user, 1 is an extreme edge case">How often {{OFTEN}}/10</span><span><strong>Built as:</strong> {{BUILT_AS}}</span></div>
 <div class="qsit"><p>{{SITUATION}}</p></div>
 <p><strong>Why it matters.</strong> {{WHY_IT_MATTERS}}</p>
 <div class="qopts">
@@ -264,7 +287,6 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
 <label class="qnote" for="n-Q3">Note (optional)</label><textarea class="qnotebox" id="n-Q3" rows="2" placeholder="Conditions, wording, or a different answer"></textarea>
 <p class="qwho" hidden></p>
 </fieldset></details>
-</div>
 </div>
 
 <!-- The copy bar stays AFTER the last question. -->
@@ -330,23 +352,29 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
   function checked(f){ return f.querySelector('input[type=radio]:checked'); }
   /* A folded built-as-recommended card opens itself when it needs a look; it never closes one the reader opened. */
   function unfold(f, yes){ var d=f.closest('details.qfold'); if(d&&yes) d.open=true; }
-  /* Only a card built as recommended starts on its built letter (data-prefilled); a built-differently card waits for the reader's pick. A pre-fill isn't the viewer's answer until they change it, note it, or press its wave's "I looked" (data-kept). */
-  function prefill(){ cards.forEach(function(f){ var b=f.dataset.built; if(!b||b!==f.dataset.rec||checked(f)) return; var r=f.querySelector('input[value="'+b+'"]'); if(r){ r.checked=true; f.dataset.prefilled='1'; } }); }
+  /* A rare case: not built yet and rated 1 to 5 (data-often). It starts on the recommendation and isn't asked: only 6 and up ask (Matt, 2026-11-07). */
+  function rare(f){ var n=+f.dataset.often; return !f.dataset.built&&!f.dataset.kind&&n>=1&&n<=5; }
+  /* The letter a card stands on before anyone answers: what was built, or the recommendation on a rare case. */
+  function base(f){ return f.dataset.built||(rare(f)?f.dataset.rec:''); }
+  /* Only a card built as recommended, or a rare case, starts on a letter (data-prefilled); a built-differently card waits for the reader's pick. A pre-fill isn't the viewer's answer until they change it, note it, or press its wave's "I looked" (data-kept). */
+  function prefill(){ cards.forEach(function(f){ var b=base(f); if(!b||b!==f.dataset.rec||checked(f)||f.dataset.cleared) return; var r=f.querySelector('input[value="'+b+'"]'); if(r){ r.checked=true; f.dataset.prefilled='1'; } }); }
   function own(f){ delete f.dataset.prefilled; delete f.dataset.kept; }
-  function read(){ return cards.map(function(f){ var r=checked(f); return {id:f.dataset.q,entry:f.dataset.entry||'',theme:f.dataset.theme||'',title:f.dataset.title,pick:r?r.value:'',label:r?r.dataset.label:'',rec:f.dataset.rec,built:f.dataset.built||'',unseen:f.dataset.prefilled==='1',kept:f.dataset.kept==='1',note:f.querySelector('textarea.qnotebox').value.trim()}; }); }
+  /* A cleared pick (data-cleared) means neither option: the note says what instead. Pre-fill skips it, so it stays cleared. */
+  function clearPick(f){ [].forEach.call(f.querySelectorAll('input[type=radio]'), function(r){ r.checked=false; }); own(f); f.dataset.cleared='1'; }
+  function read(){ return cards.map(function(f){ var r=checked(f); return {id:f.dataset.q,entry:f.dataset.entry||'',theme:f.dataset.theme||'',title:f.dataset.title,pick:r?r.value:'',label:r?r.dataset.label:'',rec:f.dataset.rec,built:f.dataset.built||'',base:base(f),rare:rare(f),unseen:f.dataset.prefilled==='1',kept:f.dataset.kept==='1',note:f.querySelector('textarea.qnotebox').value.trim()}; }); }
   /* What a viewer has said: their own picks and notes, and the built cards they kept from a wave they looked through. Unseen pre-fills are left out. */
   function said(a){ return a.kept||(!a.unseen&&(a.pick||a.note)); }
-  function apply(map){ Object.keys(map||{}).forEach(function(id){ var a=map[id], f=card(id); if(!f||!a) return; if(a.pick){ var r=f.querySelector('input[value="'+a.pick+'"]'); if(r){ r.checked=true; own(f); if(a.kept&&a.pick===f.dataset.built) f.dataset.kept='1'; } } f.querySelector('textarea.qnotebox').value=a.note||''; }); }
+  function apply(map){ Object.keys(map||{}).forEach(function(id){ var a=map[id], f=card(id); if(!f||!a) return; if(a.pick){ var r=f.querySelector('input[value="'+a.pick+'"]'); if(r){ r.checked=true; own(f); if(a.kept&&a.pick===f.dataset.built) f.dataset.kept='1'; } } else if(a.note){ clearPick(f); } f.querySelector('textarea.qnotebox').value=a.note||''; }); }
   function asMap(){ var m={}; read().forEach(function(a){ if(said(a)) m[a.id]={pick:a.pick,label:a.label,note:a.note,kept:a.kept}; }); return m; }
   function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(asMap())); }catch(e){} }
   function loadLocal(){ try{ apply(JSON.parse(localStorage.getItem(KEY)||'{}')); }catch(e){} }
-  function tally(){ var s=read(), ask=s.filter(function(a){return a.built!==a.rec;}), built=s.filter(function(a){return a.built&&a.built===a.rec;});
-    return {open:ask.length, done:ask.filter(function(a){return a.pick;}).length, built:built.length, looked:built.filter(function(a){return !a.unseen;}).length, changed:built.filter(function(a){return a.pick&&a.pick!==a.built;}).length}; }
-  function summary(){ var t=tally(), p=[]; if(t.open) p.push('To answer: '+t.done+' of '+t.open+' answered.'); if(t.built) p.push('Built as recommended: '+t.looked+' of '+t.built+' looked at'+(t.changed?', '+t.changed+' changed':'')+'.'); return p.join(' '); }
-  function refresh(){ var t=tally(), p=[]; if(t.open) p.push(t.done+' of '+t.open+' answered'); if(t.built) p.push(t.looked+' of '+t.built+' built cards looked at'+(t.changed?', '+t.changed+' changed':'')); count.textContent=p.join(' · ');
-    cards.forEach(function(f){ var r=checked(f), b=f.dataset.built, ch=!!(b&&r&&r.value!==b), st=f.querySelector('.qstate');
-      f.classList.toggle('answered', !!r&&f.dataset.prefilled!=='1'); f.classList.toggle('changed', ch); unfold(f, ch);
-      if(st){ st.hidden=!ch; st.textContent=ch?'You picked '+r.value+'; '+b+' is what’s built. This becomes a follow-up to change it.':''; } }); }
+  function tally(){ var s=read(), ask=s.filter(function(a){return a.base!==a.rec;}), built=s.filter(function(a){return a.built&&a.built===a.rec;}), rare=s.filter(function(a){return a.rare;});
+    return {open:ask.length, done:ask.filter(function(a){return a.pick||a.note;}).length, built:built.length, looked:built.filter(function(a){return !a.unseen;}).length, changed:built.filter(function(a){return !a.unseen&&a.pick!==a.built;}).length, rare:rare.length, rareChanged:rare.filter(function(a){return !a.unseen&&a.pick!==a.rec;}).length}; }
+  function summary(){ var t=tally(), p=[]; if(t.open) p.push('To answer: '+t.done+' of '+t.open+' answered.'); if(t.rare) p.push('Rare cases: '+(t.rareChanged?t.rareChanged+' of '+t.rare+' changed':'all '+t.rare+' on my recommendation')+'.'); if(t.built) p.push('Built as recommended: '+t.looked+' of '+t.built+' looked at'+(t.changed?', '+t.changed+' changed':'')+'.'); return p.join(' '); }
+  function refresh(){ var t=tally(), p=[]; if(t.open) p.push(t.done+' of '+t.open+' answered'); if(t.rare) p.push(t.rare+' rare'+(t.rareChanged?', '+t.rareChanged+' changed':'')); if(t.built) p.push(t.looked+' of '+t.built+' built cards looked at'+(t.changed?', '+t.changed+' changed':'')); count.textContent=p.join(' · ');
+    cards.forEach(function(f){ var r=checked(f), b=base(f), ch=!!(b&&f.dataset.prefilled!=='1'&&(r?r.value!==b:f.dataset.cleared)), st=f.querySelector('.qstate'); f.dataset.was=r?r.value:'';
+      f.classList.toggle('answered', f.dataset.prefilled!=='1'&&!!(r||f.querySelector('textarea.qnotebox').value.trim())); f.classList.toggle('changed', ch); unfold(f, ch);
+      if(st){ st.hidden=!ch; st.textContent=!ch?'':!r?'No option picked. Write in the note what you want instead; with no note, '+b+(f.dataset.built?' stays as built.':' gets built.'):'You picked '+r.value+'; '+b+(f.dataset.built?' is what’s built. This becomes a follow-up to change it.':' is my recommendation. Your pick is what gets built.'); } }); }
   function setMode(m){ mode.textContent = m==='shared' ? 'Your answers save to this page as you pick, and everyone who can open it sees them. Built cards you leave alone aren’t saved until you press their wave’s “I looked” button.'
     : m==='retry' ? 'Couldn’t save to the page just now. Your picks are kept in this browser; use Copy my answers at the end.'
     : 'Your answers stay in this browser. When you’re done, use Copy my answers at the end and send them back.'; }
@@ -372,19 +400,23 @@ footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid va
     [].forEach.call(g.querySelectorAll('fieldset.qcard'), function(f){ if(f.dataset.prefilled==='1'){ delete f.dataset.prefilled; f.dataset.kept='1'; n++; } });
     changed(); var w='Wave '+(g.dataset.wave||'')+': '+n+' card'+(n===1?'':'s')+' kept as built.'; status.textContent=w+' Saving…';
     saveNow().then(function(ok){ status.textContent = ok ? w+' Saved at '+stamp()+'.' : w+' Not saved to the page: use Copy my answers and send them back.'; }); });
-  document.addEventListener('change', function(ev){ var f=ev.target.closest&&ev.target.closest('fieldset.qcard'); if(f){ own(f); changed(); } });
+  document.addEventListener('change', function(ev){ var f=ev.target.closest&&ev.target.closest('fieldset.qcard'); if(f){ own(f); if(checked(f)) delete f.dataset.cleared; changed(); } });
+  /* Clicking the picked option again clears it (Matt, 2026-11-07: he sometimes wants neither option and says why in the note). */
+  document.addEventListener('click', function(ev){ var t=ev.target; if(!t||t.type!=='radio') return; var f=t.closest('fieldset.qcard'); if(f&&f.dataset.was===t.value){ clearPick(f); changed(); } });
+  document.addEventListener('keydown', function(ev){ var t=ev.target; if(ev.key!==' '||!t||t.type!=='radio'||!t.checked) return; var f=t.closest('fieldset.qcard'); if(f){ ev.preventDefault(); clearPick(f); changed(); } });
   document.addEventListener('input', function(ev){ if(ev.target.classList&&ev.target.classList.contains('qnotebox')){ var f=ev.target.closest('fieldset.qcard'); if(f) own(f); changed(); } });
   document.getElementById('q-fill').addEventListener('click', function(){ cards.forEach(function(f){ if(!checked(f)){ var r=f.querySelector('input[value="'+f.dataset.rec+'"]'); if(r) r.checked=true; } }); changed(); status.textContent='Filled in my recommendations on every card you hadn’t answered. On a built-differently card that asks for a change, which becomes a follow-up. Change any you disagree with.'; });
-  document.getElementById('q-clear').addEventListener('click', function(){ cards.forEach(function(f){ [].forEach.call(f.querySelectorAll('input[type=radio]'), function(r){r.checked=false;}); f.querySelector('textarea.qnotebox').value=''; own(f); }); prefill(); changed(); out.hidden=true; status.textContent='Reset: built cards are back to what was built, and the rest are blank.'; });
-  function text(){ var lines=['Answers for "'+document.title+'" (page '+page+'):'], open=[], kept=[], unseen=[];
-    read().forEach(function(a){ if(a.kept){ kept.push(a.id); return; } if(a.unseen){ unseen.push(a.id); return; } if(!a.pick&&!a.note){ open.push(a.id); return; } lines.push(a.id+(a.entry?' ['+a.entry+']':'')+' — '+a.title+': '+(a.pick?a.pick+' ('+a.label+')'+(a.pick===a.rec?' [recommended]':'')+(a.built?(a.pick===a.built?' [as built]':' [differs from built '+a.built+']'):' [not built yet]'):'no pick')); if(a.note) lines.push('   Note: '+a.note.replace(/\n/g,' ')); });
+  document.getElementById('q-clear').addEventListener('click', function(){ cards.forEach(function(f){ [].forEach.call(f.querySelectorAll('input[type=radio]'), function(r){r.checked=false;}); f.querySelector('textarea.qnotebox').value=''; own(f); delete f.dataset.cleared; }); prefill(); changed(); out.hidden=true; status.textContent='Reset: built cards are back to what was built, rare cases to my recommendation, and the rest are blank.'; });
+  function text(){ var lines=['Answers for "'+document.title+'" (page '+page+'):'], open=[], kept=[], unseen=[], rareLeft=[];
+    read().forEach(function(a){ if(a.kept){ kept.push(a.id); return; } if(a.unseen){ (a.rare?rareLeft:unseen).push(a.id); return; } if(!a.pick&&!a.note){ open.push(a.id); return; } lines.push(a.id+(a.entry?' ['+a.entry+']':'')+' — '+a.title+': '+(a.pick?a.pick+' ('+a.label+')'+(a.pick===a.rec?' [recommended]':'')+(a.built?(a.pick===a.built?' [as built]':' [differs from built '+a.built+']'):' [not built yet]'):'neither option, see the note')); if(a.note) lines.push('   Note: '+a.note.replace(/\n/g,' ')); });
     if(kept.length) lines.push('Kept as built: '+kept.join(', '));
     if(unseen.length) lines.push('Built, not looked at yet: '+unseen.join(', '));
+    if(rareLeft.length) lines.push('Rare cases left on the recommendation: '+rareLeft.join(', '));
     if(open.length) lines.push('Still open: '+open.join(', ')); return lines.join('\n'); }
   document.getElementById('q-copy').addEventListener('click', function(){ var t=text(); out.value=t; out.hidden=false;
     function fallback(){ out.focus(); out.select(); status.textContent='Your answers are selected below. Copy them (Cmd+C or Ctrl+C) and send them back.'; }
     try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ status.textContent='Copied. Paste them to whoever sent you this page.'; }, fallback); } else { fallback(); } }catch(e){ fallback(); } });
-  cards.forEach(function(f){ var b=f.dataset.built; if(!b) return; var r=f.querySelector('input[value="'+b+'"]'), s=r&&r.closest('.qopt').querySelector('.ot strong');
+  cards.forEach(function(f){ var b=base(f); if(!b) return; var r=f.querySelector('input[value="'+b+'"]'), s=f.dataset.built&&r&&r.closest('.qopt').querySelector('.ot strong');
     if(s){ var flag=document.createElement('span'); flag.className='builtflag'; flag.textContent='Built'; s.insertAdjacentElement('afterend', flag); }
     var st=document.createElement('p'); st.className='qstate'; st.setAttribute('role','status'); st.hidden=true; f.querySelector('.qopts').insertAdjacentElement('afterend', st); });
   loadLocal(); prefill(); refresh(); setMode('local');

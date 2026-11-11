@@ -1,12 +1,13 @@
 ---
 name: queue
-description: Use when the user types /queue to add work to WORK_QUEUE.md or run one of its subcommands (summary, fit, quick, promote, unblock, questions, answers, help).
+description: Use when the user types /queue to add work to WORK_QUEUE.md or run one of its subcommands (summary, fit, quick, promote, effort, unblock, questions, answers, help).
 argument-hint: |-
   <what's wrong or wanted> [later]   spec it into the queue
   summary    one line per item, and the time to finish
   fit <7h | 11:30pm> [lean]   the most Ready items one /wave (or /wave lean) run finishes in that window
   quick [3h]   pull small fixes that share nothing (bundle bullets too) into Ready for one /wave lean run
   promote    move Later items into Ready; recommends the model and effort
+  effort     the model and effort to kick off /wave with, for Ready as it stands
   unblock    put the Waiting items on the open-questions page
   questions  rebuild the open-questions page: every open question on one page
   answers    apply answers from the page, a paste, or chat
@@ -47,13 +48,25 @@ Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In C
 - `fit <window> [lean]` → the **Fit** section below only. It reads; it writes nothing.
 - `quick [window]` → step 1, then the **Quick** section below.
 - `promote` → steps 1 and 2, then the **Promote** section below. Write what step 2 settles first (step 4's safe write; steps 3–4 for a follow-up it queues), so Promote reads current entries.
+- `effort` → find the queue (step 1, without its structural edits), then Promote step 7 (**Kick-off setting**) on Ready as it stands. It reads; it writes nothing. Reply with step 7's block without its `Per task:` table: the Kick off with, Needed by, Cheaper option and Lean lines only. Name each ID once: when the Cheaper option's waiting IDs or the Risky lean IDs are the Needed by IDs, write "the same tasks". Empty Ready → one line: `Ready is empty. /queue promote fills it.`
 - `unblock` → steps 1 and 2, then the **Unblock** section below.
 
 ## Every run, in order
 
 **1. Find or create the queue.** `WORK_QUEUE.md` at the git root (match case-insensitively).
-- None → create it from `queue-template.md` (beside this file). Ask once, with AskUserQuestion, which tracker holds this project's tickets (JIRA project, Linear team…), offering "None" → write `none: queue IDs are the commit keys, decoded in QUEUE_IDS.txt`, and "Not yet" → write `not set — ask the user before filing tickets`. Add `/WORK_QUEUE.md` to `.gitignore`: the user decided the queue is a private, local inbox. The safe-write rule in step 4 is what protects it; don't leave it tracked to "keep history".
-- Exists → follow its own entry template and field names (its ticket field may be called JIRA, Ticket…; file:line evidence goes in Now when it has no Evidence field). If its header lacks the template's "**Open questions live on one page.**" paragraph, put the template's two paragraphs — that one and "`🔴 Decision open`…" — just above the `---` that ends the header, replacing any older "When a batch finishes…" and `🔴 Decision open` paragraphs. If it has no `## Awaiting answers` section, add the template's at the end of the file. If it has no `## Waiting` section, add the template's between the Ready and Later sections, replace the header's "Only `## Ready` gets worked…" paragraph with the template's, and add "or type **`/wave`**" to its "work the queue" line if missing.
+- None → create it from `queue-template.md` (beside this file). Ask once, with AskUserQuestion, which tracker holds this project's tickets (JIRA project, Linear team…), offering "None" → write `none: queue IDs are the commit keys, decoded in QUEUE_IDS.txt`, and "Not yet" → write `not set — ask the user before filing tickets`. In the same AskUserQuestion call, ask whether the queue goes in git (**Queue files in git** below), and write the answer as the header's `**In git:**` line.
+- Exists → follow its own entry template and field names (its ticket field may be called JIRA, Ticket…; file:line evidence goes in Now when it has no Evidence field). If its header has no `**In git:**` line, add one under `**Tracker:**`. When `git ls-files --error-unmatch WORK_QUEUE.md` shows the queue is already tracked, write `yes` and ask nothing. Otherwise ask once and switch, as **Queue files in git** says. Replace an old "**This file is gitignored…**" paragraph with the template's "Never edit this file in place" paragraph. If its header lacks the template's "**Open questions live on one page.**" paragraph, put the template's two paragraphs — that one and "`🔴 Decision open`…" — just above the `---` that ends the header, replacing any older "When a batch finishes…" and `🔴 Decision open` paragraphs. If it has no `## Awaiting answers` section, add the template's at the end of the file. If it has no `## Waiting` section, add the template's between the Ready and Later sections, replace the header's "Only `## Ready` gets worked…" paragraph with the template's, and add "or type **`/wave`**" to its "work the queue" line if missing.
+
+**Queue files in git.** The queue files are `WORK_QUEUE.md`, `open-questions.page.html` and the wave docs (`YYYY-MM-DD-wave*`: the doc, its `.queue.md` snapshot, `.pr*.md`, `.cost.md`, pages), all at the git root. The header's `**In git:**` line says whether git tracks them. The user's rule (2026-11-07): a personal repo tracks them; a work or shared repo keeps them out of git.
+- **Ask** once per queue, with AskUserQuestion. Recommend `yes` when the repo is personal: it has no `origin`, or `gh repo view --json visibility,isInOrganization` (as the account that can read the repo) gives `PRIVATE` and `false`, and at most one person committed in the last three months (`git log --since="3 months ago" --format=%an`, not counting agent, bot or wave-snapshot authors). Otherwise recommend `no`, and name the check that decided it. A public repo would publish the queue on the next push.
+- **`yes`:** remove the queue files' lines, and the comments above them, from `.gitignore` and from `$(git rev-parse --git-common-dir)/info/exclude`. After every step that changes queue files, commit those files alone: `git add -- <files> && git commit --only -m "queue: <what changed, in plain words>" -- <files>`. Switching an existing queue to `yes` commits every queue file that exists, in one commit. Include `.gitignore` in that commit only when the removed lines are its only change. Never put a queue ID in the message when the queue names a tracker. Never push: the commits go up with the user's next push or the wave's PR. If git reports `index.lock`, a wave is committing: retry in a few seconds. A rule in the protocol's `### Setup` wins over this one (for example, one that pushes docs-only commits).
+- **`no`:** append these lines to `$(git rev-parse --git-common-dir)/info/exclude`. That file is local to this clone, so the team's `.gitignore` does not change:
+  ```
+  /WORK_QUEUE.md
+  /open-questions.page.html
+  /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-wave*
+  ```
+  Nothing is committed, so there is no undo. The safe write in step 4 is the only protection.
 
 **2. Pull answers.** `## Awaiting answers` lists the open-questions page first, then any older pages still read until their questions are settled. For each page, read its answers with ArtifactData (`list`, collection `answers`, the page url) and the page itself with the Artifact tool (`read`). Each answers document is one person: `{Q17: {pick, label, note, kept, at}, …}`. Each question card on the page carries `data-q` (its number, permanent on the open-questions page), `data-entry` (the queue entry), `data-built` (the option letter that was built; empty if nothing was built yet), its title and its option labels. Answers pasted into the message (the page's Copy format) count too, and so do answers the user gives in chat: match each to its card by Q number on the open-questions page.
 
@@ -65,10 +78,11 @@ Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In C
 | agree, the entry is gone, and the pick matches `data-built` | Nothing to do. |
 | agree, the entry is gone, and the pick differs from `data-built` | Queue a follow-up (steps 3–4): change what was built to the answer. Its Notes cite the page url and question number. |
 | on an unblock card (`data-kind="unblock"`) agree | Write the decision into the entry's Notes (`Decided YYYY-MM-DD on <page url>: <label>`), then do what the option says. **Build it** (including the promote option, `data-promote`, which takes the entry as it stands): rewrite Want / Touches / Done when where the answer changes them, delete the `Waiting on:` line, and move the entry to the end of Ready. **Close it:** delete the entry and report it. **Hand it off:** keep it in Waiting with a new `Waiting on:` line. **Part now, part later:** split it: the buildable part becomes its own entry at the end of Ready (named the way this queue names slices, e.g. `PREF-1 S2a`, or the next free ID if it has no such convention), and the rest stays in Waiting with its own `Waiting on:`. |
+| a note with no pick (the person cleared their pick: neither option) | The note is the answer. Apply it as the agree rows do, with the note in place of an option: an entry still in the queue is rewritten to it; a built one gets a follow-up that builds it. Its Notes quote the note and cite the page url and question number. |
 | disagree, or a note is unclear | Ask the user with AskUserQuestion. The store holds ids, not names: describe each side by its pick and note, and point the user at the page, which shows who said what. |
 
 - An answer that depends on a question still open: apply what it settles, and leave the rest with the open question.
-- **Built cards start pre-filled** with `data-built` on the page, but a pre-fill is not an answer: it reaches the store only when the person changes the card, writes a note on it, or presses its wave's **I looked: keep these as built** (saved with `kept: true`). So a built card with no saved pick is still open. A pasted `Kept as built: Q4, Q7…` line counts as picks that match `data-built`; a `Built, not looked at yet:` line settles nothing.
+- **Built cards start pre-filled** with `data-built` on the page, but a pre-fill is not an answer: it reaches the store only when the person changes the card, writes a note on it, or presses its wave's **I looked: keep these as built** (saved with `kept: true`). So a built card with no saved pick is still open. A pasted `Kept as built: Q4, Q7…` line counts as picks that match `data-built`; a `Built, not looked at yet:` or `Rare cases left on the recommendation:` line settles nothing. A pasted `neither option, see the note` is a note with no pick.
 - **One decision on several pages** (an older page and the open-questions page can hold the same question; match by `data-entry` plus title): the newest answer wins, and answering it on any page settles it on all of them.
 - **A wave is running** (a wave doc beside the queue whose first line is `**Status:** RUNNING`): its `**In flight:**` line lists the entries it is building. Leave every answer whose card's `data-entry` is on that list unapplied: don't touch the entry, and treat the question as unsettled, so its card stays open. Report each as `held until the wave's handoff`. The wave applies them at its handoff, after it knows what it built. Answers about any other entry, and new tasks, go ahead as usual.
 - Once every question on an older page is settled, delete that page's line from `## Awaiting answers`. The open-questions page's line stays.
@@ -93,24 +107,28 @@ A decision the code can't settle (product, wording, design, cost, legal…) is r
 - 🔴 **Decision open (<Theme>):** <the question, in plain words>
   - Situation: <2–3 sentences from the user's side; no file names>
   - Why it matters: <the business outcome>
+  - How often: <1–10> — <who meets it, in plain words>
   - A (assumed, recommended): <label> — <its effect>. Why: <one line>
   - B: <label> — <its effect>
 ```
 
 Two to four options; add C and D only when they're real choices.
 
+**How often** rates how many users meet the situation the question is about, not the feature as a whole (everyone opens the list; only new accounts see its empty state). 10: every user, each time they use it. 8: most users in a normal week. 6: a regular group (one role, a common setting, a common kind of data). 4: a few users now and then. 2: rare (a mistake, a race, a limit almost nobody reaches). 1: an extreme edge case that needs several unusual things at once. Rate from the code and the data (how the path is reached, how many records take it), not from how interesting the question is. The open-questions page asks only about 6 to 10; on 1 to 5 it shows the recommendation as taken (the user's call, 2026-11-07).
+
 Theme is one of Product, Design, Wording, Engineering, Cost, Legal/Privacy, or a new one when none fits.
 
 **4. Write the entry.**
 - ID = the area prefix this project already uses for that part of the product, plus the next number not used in the queue, any `*-wave*.md` beside it, `QUEUE_IDS.txt` at the git root, or a page you're reading (shipped entries are deleted, so the queue alone reuses numbers). No prefix fits → start a short new one.
 - Append it at the end of its section. Ticket field `—`. Never create or edit tickets.
-- **Queue IDs stay on this machine.** Only this skill, `/wave` and this checkout know them. Never write one into a tracker (ticket, comment, field, link text), nor into a commit message when the queue's Tracker line names one: trackers show linked commits. With Tracker `none`, `/wave` makes the queue ID the commit key and adds its line to `QUEUE_IDS.txt`.
-- Safe write — the file has no history:
+- **Queue IDs stay out of trackers.** Only this skill, `/wave` and this repo know them. Never write one into a tracker (ticket, comment, field, link text), nor into a commit message when the queue's Tracker line names one: trackers show linked commits. With Tracker `none`, `/wave` makes the queue ID the commit key and adds its line to `QUEUE_IDS.txt`.
+- Safe write (another session can edit the file at the same time):
   1. `cp` the live file to the scratchpad as `orig`. (New queue: build it in the scratchpad, then check again that no queue has appeared before the `cp`.)
   2. Build `new` from it. Split on the heading lines `\n## Ready\n` / `\n## Waiting\n` / `\n## Later\n`; the header also contains those words.
   3. Print `grep -n '^## \|^### '` of `new` and check it.
   4. `cmp` the live file against `orig`. If they differ, another session edited it: rebuild on the new live copy.
   5. `cp` `new` over the live file.
+  6. `**In git:** yes` → commit it, as **Queue files in git** says.
 
 **5. Reply** in chat, briefly:
 - one line per entry written or changed: `ID · section · title`, plus `· 🔴 n decisions recorded` when it has any;
@@ -131,6 +149,7 @@ Print this table as-is (a table, not a code block, so long lines wrap inside the
 | `/queue fit <window> lean` | The same for a /wave lean run (test-first builders, one final check, no reviews). |
 | `/queue quick [3h \| 11:30pm]` | Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line. |
 | `/queue promote` | Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with. |
+| `/queue effort` | The model and effort to kick off /wave with, for Ready as it stands. Changes nothing. |
 | `/queue unblock` | Put the Waiting items on the open-questions page; answers move them to Ready. |
 | `/queue questions` | Rebuild the open-questions page: one page, one link, every open question. It re-checks each one and lists what closed without you, and why. |
 | `/queue answers` | Apply answers from the page, a paste, or chat (every /queue also does this first). |
@@ -310,13 +329,14 @@ One page per queue holds every question still open, at one link. **Rolling** reb
    - every `🔴 Decision open` block on an entry in the queue;
    - the caller's new cards: a wave's built decisions in a new wave group, its merge decisions, or unblock's Waiting cards.
    A new card takes the page's `data-next` as its number, and `data-next` goes up by one. Never reuse a number.
+   Every decision card (not merge or Waiting cards) carries `data-often`, its **How often** rating (the scale in step 3 of **Every run**): from the `🔴` block's line, or the builder's `often` for a wave decision. A card with none (a card from before 2026-11-07, a self-answered go/no-go question) gets one now; for a carried card, the step 3 checkers rate it. Adding it is the one change a carried card allows.
 3. **Re-check every carried card** against the queue and the code. Use read-only checker agents (the `wave-planner` agent type in Claude Code), in parallel: about 15 cards each, or about 40 built-as-recommended cards, which need only a quick look at whether later commits changed that code. A card closes only when:
    - **later work settled it:** the code now does one of its options. Name the commit or `file:line`, and say which option it is;
    - **it no longer applies:** its entry is gone and nothing built is about it any more, the thing it asks about was removed, or another settled answer decides it (name that answer).
    A checker that isn't sure keeps the card. Never close a card because it is old or because nobody answered. Each closed card goes in **Closed without you** with its reason, for this roll only.
-4. **Build and publish.** Put the parts in the template's order and delete empty ones. A wave's roll replaces **Latest run** with that wave's report; other rolls keep it. Update the stats and the date line. Publish to the page's url (Artifact `publish` with `url`). The first roll publishes a new page, privately, with the template's capabilities and `icon: "list"`. Then keep a local copy as step 2 says.
+4. **Build and publish.** Put the parts in the template's order and delete empty ones. Order cards by rating and fold the rare cases (part 1 cards rated 1 to 5) as the template's **HOW OFTEN** rule says. A wave's roll replaces **Latest run** with that wave's report; other rolls keep it. Update the stats and the date line. Publish to the page's url (Artifact `publish` with `url`). The first roll publishes a new page, privately, with the template's capabilities and `icon: "list"`. Then keep a local copy as step 2 says.
 5. **Update `## Awaiting answers`** with the safe write: the page's line first, `- Open questions — <url> — <n> open (rolled YYYY-MM-DD)`, then the older pages still read. Delete an older page's line once each of its questions is settled.
-6. **Reply** (`/queue questions`): the link, how many cards each part has, and one line per card closed without the user, with its reason.
+6. **Reply** (`/queue questions`): the link, how many cards each part has (part 1: to answer, and rare cases), and one line per card closed without the user, with its reason.
 
 ## Unblock (`/queue unblock`)
 
@@ -337,7 +357,7 @@ Put one card per Waiting item on the open-questions page, where the user, or any
 
 | Tempting move | Why not |
 |---|---|
-| Leave a new queue tracked in git so it has history | The user decided it's gitignored; safe-write covers the risk. |
+| Track the queue in a work repo, or ignore it in a personal one, without asking | The user's rule (2026-11-07): personal repos track the queue files, work and shared repos don't. Ask once; the `**In git:**` line records it. |
 | Spec the adjacent bug you found alongside, or instead of, the reported one | Only the reported fix is queued; the rest is one line in the reply. |
 | Split an existing entry or move it to Ready | Enrich it in place; sections are the user's call. `/queue quick` is the one exception: the user ran it to split bundles and move its picks. |
 | Stop and ask a stakeholder question in chat | Record it on the entry; the open-questions page asks it. |

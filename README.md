@@ -4,12 +4,13 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
 
 | Skill | What it does |
 |---|---|
-| [`productivity/queue`](productivity/queue) | `/queue`: spec a fix or feature from the code into a project's `WORK_QUEUE.md`, plus summary, time-fit, quick-wins, promote, unblock and stakeholder-answer commands. |
+| [`productivity/queue`](productivity/queue) | `/queue`: spec a fix or feature from the code into a project's `WORK_QUEUE.md`, plus summary, time-fit, quick-wins, promote, effort, unblock and stakeholder-answer commands. |
 | [`productivity/wave`](productivity/wave) | `/wave`: build everything in the queue's Ready section as one parallel, test-first, adversarially reviewed batch. |
+| [`productivity/where`](productivity/where) | `/where`: one thread's status: what it was about, whether its work shipped, and whether the thread is safe to close. |
 | [`gamedev/blender-bpy`](gamedev/blender-bpy) | Rules for fast headless Blender (`bpy`/`bmesh`) scripts and AI-mesh cleanup: no `bpy.ops` in loops, NumPy `foreach_get`/`foreach_set`, UV-safe decimation, Blender 4.1+ smoothing, one-process batching, image prep for image-to-3D, `UCX_` collision hulls. |
 | [`gamedev/rtx3090-image-to-3d`](gamedev/rtx3090-image-to-3d) | Turn a concept image into a game-ready prop (FBX/GLB, LODs, `UCX_` collision, textures) through the local image-to-3D server at `F:\Code\ai-3d-pipeline` on the RTX 3090: check the server, prep the image, submit, monitor, verify. Set up for one PC; see [on another computer](#rtx3090-image-to-3d-on-another-computer). |
 
-`queue` and `wave` are manual-only: they run when you type them, never on their own. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup. `rtx3090-image-to-3d` loads on its own when you ask for a 3D model from an image; it needs the pipeline's server running (`start_server.bat`), and the skill starts it if it is down.
+`/queue` and `/wave` are manual-only: they run when you type them, never on their own. `/where` is read-only, so it also runs when you ask where a thread stands. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup. `rtx3090-image-to-3d` loads on its own when you ask for a 3D model from an image; it needs the pipeline's server running (`start_server.bat`), and the skill starts it if it is down.
 
 ## How the two fit together
 
@@ -19,7 +20,7 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
  "this is broken" / "I want X"
             │
             ▼
-   /queue <what>  ──spec from the code──▶  WORK_QUEUE.md (git root, gitignored)
+   /queue <what>  ──spec from the code──▶  WORK_QUEUE.md (git root; in git for personal repos)
                                              ## Ready     what /wave builds next
                                              ## Waiting   blocked on something outside the code
                                              ## Later     parked
@@ -73,7 +74,7 @@ docs/superpowers/plans/     implementation plans for past changes to these skill
 This repo holds the only copy of the skills. Claude Code loads skills from `~/.claude/skills/<name>/`, and Codex from `~/.agents/skills/<name>/`. Both follow symlinks, so link each skill folder into both places:
 
 ```bash
-for s in queue wave; do
+for s in queue wave where; do
   ln -sfn "$PWD/productivity/$s" ~/.claude/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.agents/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.gemini/config/skills/$s

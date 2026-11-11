@@ -1,6 +1,7 @@
 # Work Queue
 
 **Tracker:** {{TRACKER}}
+**In git:** {{yes: tracked; each /queue and /wave change is committed alone, never pushed | no: kept out of git (info/exclude), so it has no history and no undo}}
 
 Add to this file with `/queue <what's wrong or what you want>`. Point Claude at
 it to do the work: **"work the queue in WORK_QUEUE.md"**, or type **`/wave`**. It reads the list,
@@ -36,7 +37,9 @@ link. Each `/wave` handoff, `/queue unblock` and `/queue questions` update it in
 place (`~/.agents/skills/queue/batch-page-template.html` has the rules). First
 come the questions that need you before something is built, then decisions built
 differently from my recommendation, merge decisions, Waiting items, and decisions
-built as recommended, folded by run to skim. A question stays until you answer
+built as recommended, folded by run to skim. Each part lists the questions most
+users meet first (rated 1 to 10); one not built yet and rated 1 to 5 is set to my
+recommendation and folded, so you answer only 6 to 10. A question stays until you answer
 it, later work settles it, or it no longer applies; the page lists what closed
 without you, and why. Stakeholders answer on the page; `/queue answers` applies
 an answer to an entry still waiting here, or turns an answer that differs from
@@ -47,9 +50,9 @@ what was built into a follow-up entry. The page's link is the first line under
 answer, and the work builds that. The question stays on the open-questions page
 until someone answers it.
 
-**This file is gitignored, so it has no history and no undo.** Never edit it in
-place: build the new version in a scratch copy, check that the live file still
-matches the copy you started from, then copy the new version over it.
+**Never edit this file in place:** build the new version in a scratch copy,
+check that the live file still matches the copy you started from, then copy the
+new version over it.
 
 ---
 

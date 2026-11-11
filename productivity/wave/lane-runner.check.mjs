@@ -18,7 +18,7 @@ async function agent(prompt, opts) {
   ended[l] = performance.now()
   if (leanStub && l === 'impl:U3') return { status: 'blocked', commits: [], filesTouched: [], summary: l, userFacingChange: '', testsAdded: [], decisions: [], deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: ['could not build'] }
   if (leanStub && l === 'final-gates') return { gates: [], allGreen: true, failuresFixed: [{ what: 'lint', commit: 'g1' }], remainingFailures: [], notes: '' }
-  if (l.startsWith('impl:')) return { status: 'complete', commits: [{ sha: 'abc' + l, ticket: 'T', subject: l }], filesTouched: [], summary: l, userFacingChange: '', testsAdded: [], decisions: [{ question: 'Q-' + l, optionA: 'a', optionB: 'b', picked: 'a', why: 'W-' + l, productFlavour: false }],deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: [] }
+  if (l.startsWith('impl:')) return { status: 'complete', commits: [{ sha: 'abc' + l, ticket: 'T', subject: l }], filesTouched: [], summary: l, userFacingChange: '', testsAdded: [], decisions: [{ question: 'Q-' + l, optionA: 'a', optionB: 'b', picked: 'a', why: 'W-' + l, productFlavour: false, often: 3 }],deviationsFromBrief: [], pendingHumanSteps: [], openQuestions: [], crossLaneNotes: [], reviewPlan: [], laterItems: [], incomplete: [] }
   if (l.startsWith('review:') || l.startsWith('verify:')) {
     const u = l.split(':')[1].split('#')[0]; reviewCount[u] = (reviewCount[u] || 0) + 1
     const fail = (u === 'U1' && reviewCount[u] < 3) || u === 'U3'   // U1 fails twice then passes; U3 never passes
@@ -189,4 +189,5 @@ assert(!prompts['impl:U1'].includes('Visual only: no new test') && !prompts['rev
 const skill = readFileSync(new URL('./SKILL.md', import.meta.url), 'utf8')
 assert(skill.includes('`PLACEMENT` paragraph from `lane-runner.js`') && src.includes('const PLACEMENT = '), 'planning checkers get the runner\'s placement paragraph')
 assert(/## Land \(`\/wave land`\)/.test(skill) && skill.includes('Never merge one, and never turn on auto-merge') && skill.includes('Merge a pull request or turn on auto-merge, even in `/wave land`'), '/wave land pushes one PR per group and never merges')
+assert(skill.includes('**Settle first: a wave already on origin is never landed again.**') && skill.includes('**Settle at startup:**') && skill.includes('**Wave range:** <base>..<tip>') && skill.includes('Never push the run branch, and never move the source branch to it'), 'Land settles waves already on origin, and an isolated run lands only its own commits')
 assert(/technical notes[^\n]*productFlavour: false|productFlavour: false[^\n]*technical notes/.test(skill), 'handoff puts engineering decisions on the ticket\'s technical notes')
