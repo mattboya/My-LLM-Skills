@@ -1,11 +1,12 @@
 ---
 name: queue
-description: Use when the user types /queue to add work to WORK_QUEUE.md or run one of its subcommands (summary, fit, quick, promote, effort, unblock, questions, answers, help).
+description: Use when the user types /queue to add work to WORK_QUEUE.md or run one of its subcommands (summary, fit, quick, rank, promote, effort, unblock, questions, answers, help).
 argument-hint: |-
   <what's wrong or wanted> [later]   spec it into the queue
   summary    one line per item, and the time to finish
   fit <7h | 11:30pm> [lean]   the most Ready items one /wave (or /wave lean) run finishes in that window
   quick [3h]   pull small fixes that share nothing (bundle bullets too) into Ready for one /wave lean run
+  rank       bucket the whole queue by user impact (high / medium / low / rarely), time each bucket, hand you /wave auto lines
   promote    move Later items into Ready; recommends the model and effort
   effort     the model and effort to kick off /wave with, for Ready as it stands
   unblock    put the Waiting items on the open-questions page
@@ -47,6 +48,7 @@ Antigravity loads this skill from `~/.gemini/config/skills/queue`. Follow **In C
 - `summary` → the **Summary** section below only. It reads; it writes nothing.
 - `fit <window> [lean]` → the **Fit** section below only. It reads; it writes nothing.
 - `quick [window]` → step 1, then the **Quick** section below.
+- `rank` → steps 1 and 2, then the **Rank** section below. It writes: it asks about the Waiting items that matter, and moves the High and Medium Later items into Ready.
 - `promote` → steps 1 and 2, then the **Promote** section below. Write what step 2 settles first (step 4's safe write; steps 3–4 for a follow-up it queues), so Promote reads current entries.
 - `effort` → find the queue (step 1, without its structural edits), then Promote step 7 (**Kick-off setting**) on Ready as it stands. It reads; it writes nothing. Reply with step 7's block without its `Per task:` table: the Kick off with, Needed by, Cheaper option and Lean lines only. Name each ID once: when the Cheaper option's waiting IDs or the Risky lean IDs are the Needed by IDs, write "the same tasks". Empty Ready → one line: `Ready is empty. /queue promote fills it.`
 - `unblock` → steps 1 and 2, then the **Unblock** section below.
@@ -148,6 +150,7 @@ Print this table as-is (a table, not a code block, so long lines wrap inside the
 | `/queue fit <7h \| 11:30pm>` | The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing. |
 | `/queue fit <window> lean` | The same for a /wave lean run (test-first builders, one final check, no reviews). |
 | `/queue quick [3h \| 11:30pm]` | Pull small fixes that share nothing (including single bullets from follow-up lists) to the end of Ready, and hand you the /wave lean line. |
+| `/queue rank` | Bucket the whole queue by what users see (high / medium / low / rarely), settle the Waiting items that block the top two buckets with click-to-answer questions, move the top two buckets into Ready, and give the time for each and the `/wave auto` lines to paste. |
 | `/queue promote` | Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with. |
 | `/queue effort` | The model and effort to kick off /wave with, for Ready as it stands. Changes nothing. |
 | `/queue unblock` | Put the Waiting items on the open-questions page; answers move them to Ready. |
@@ -259,6 +262,58 @@ Set first: <the Lean line's model · effort>.
 ```
 
 The paste line lists the picks in Ready order. Left behind names candidates only (step 2's skips aren't listed). When a wave doc says `RUNNING`, add `A wave is running: paste the line after it hands off.` Nothing picked → `No quick wins right now.` plus the Left behind lines.
+
+## Rank (`/queue rank`)
+
+Sort the whole queue by what users see, so the user can pick a wave by impact. It reads every entry in Ready, Waiting and Later, asks about the Waiting items that block the top buckets, moves the top buckets into Ready, and hands over the times and the `/wave auto` lines. Two writes only: the answers to the Waiting questions (step 4), and the Later → Ready move (step 5). Nothing else in the queue changes.
+
+1. **Read every entry** (Now, Want, Notes, `Waiting on:`). Over about 25 entries, split them across read-only `wave-planner` agents in parallel, about 15 each.
+2. **Bucket each entry** by who meets it and whether they see it. This is the **How often** scale (step 3 of **Every run**) plus visibility:
+
+| Bucket | An entry belongs when |
+|---|---|
+| High | How often 8–10 and users see it on screen: wrong numbers, a broken flow, lost data, text that looks broken. |
+| Medium | How often 5–7, or users see it but it doesn't block them. |
+| Low | How often 3–4, or polish. |
+| Rarely | How often 1–2, or users never see it: tooling, CI, analytics, research, pilots. |
+
+   - **A bundle** (a follow-up list of bullets) is one entry: it takes the bucket of its most user-visible bullet, tagged `(<n> bullets, <k> users would see)`. Never split it here; `/queue quick` does that.
+   - **Dependencies:** an entry whose Now, Want or Notes says another entry in the queue must land first ("needs X", "after X", "build X first") lists that entry once, as a sub-bullet under the highest-bucket entry that needs it, and not again in its own bucket. A dependency of a Low or Rarely entry is not pulled up. A dependency counts in the times and moves with its parent, and stands before its parent in the paste lines.
+   - A human-only entry is bucketed but left out of the times and the paste lines.
+3. **Find the Waiting items that matter:** every Waiting entry that is High or Medium itself, or is a dependency of one. None → skip to step 5. Leave out an entry on the `**In flight:**` line of a wave doc at `**Status:** RUNNING`, and say so.
+4. **Ask in the thread, not on the page.** One AskUserQuestion per entry from step 3, at most 4 a call, with the card Unblock step 2 describes (standing alone in plain words; **A** recommended; the real alternatives; last, `Don't need to decide — promote to Ready`). Apply each answer as step 2's unblock-card rows do (build it, close it, hand it off, part now and part later), and write `Decided YYYY-MM-DD in chat: <label>` in the entry's Notes. A question the open-questions page also asks closes at the next roll (**Open-questions page**, step 3: another settled answer decides it). An entry the user leaves waiting stays in Waiting. In Codex, ask as **In Codex** says.
+5. **Move** every High and Medium entry still in Later (dependencies too) to the end of Ready, High first, then Medium, each bucket in the file's order. Entries already in Ready stay where they are; Waiting entries still waiting never move. Build it all, step 4's answers included, in one safe write (step 4 of **Every run**).
+6. **Time** each set on the live queue, now that its entries are in Ready: `python3 ~/.agents/skills/queue/estimate.py <queue path> --json --only <IDs>` for High (dependencies included), Medium, and High + Medium together. Read `ready_now.hours`, rounded to the nearest half hour. High + Medium is less than the two added up, because the lanes run side by side and planning and handoff are paid once; say so when it is.
+7. **Reply**, in this shape. Low and Rarely get one line each: the IDs with three to five words apiece. A bucket with nothing in it is left out, and so are its time and paste lines.
+
+```
+**Work queue by user impact**: <h> high · <m> medium · <l> low · <r> rarely (plus <d> dependencies, shown under their parent)
+
+**High**
+- `ID` — <the payoff sentence, as Summary writes it>   (moved from Later)
+  - `ID` (needed first) — <what it is, a few words>
+
+**Medium**
+- `ID` — <sentence>
+- Still waiting (not in the times or lines): `ID` — <what it waits on, a few words>
+
+**Low**: `ID` <words> · `ID` <words>
+**Rarely**: `ID` <words> · `ID` <words>
+
+**Time to finish** (typing /wave to handoff; past runs took from 20% less to 35% more)
+- High (<n> items): about <h>h
+- Medium (<n> items): about <h>h
+- High + Medium (<n> items): about <h>h <the "less than the sum" note, when it applies>
+
+**Moved to Ready:** <IDs, in the order moved>
+
+Paste: High
+/wave auto <IDs, dependencies first, in Ready order>
+Paste: High + Medium
+/wave auto <the same, then the Medium IDs>
+```
+
+   Put each paste line in its own fenced block so it copies on its own. After the reply, plain `/wave` also builds the Medium entries that moved: say so in one line. When a wave doc says `RUNNING`, add `A wave is running: paste the line after it hands off.`
 
 ## Promote (`/queue promote`)
 

@@ -29,6 +29,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 /queue fit <7h | 11:30pm>         The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing.
 /queue fit <window> lean          The same for a /wave lean run (test-first builders, one final check, no reviews).
 /queue quick [3h]                 Pull small fixes that share nothing (single bullets from follow-up lists too) into Ready, and hand you the /wave lean line.
+/queue rank                       Bucket the whole queue by user impact (high / medium / low / rarely), ask the Waiting items that block the top two as click-to-answer questions, move the top two into Ready, and give each bucket's time and the /wave auto lines.
 /queue promote                    Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with.
 /queue effort                     The model and effort to kick off /wave with, for Ready as it stands. Changes nothing.
 /queue unblock                    Put the Waiting items on the open-questions page; answers move them to Ready.
@@ -47,10 +48,10 @@ Because the file has no git history, every write is a "safe write": copy to scra
 
 | File | What it is |
 |---|---|
-| `SKILL.md` | The skill itself: intake steps, safe-write rules, and the summary / fit / promote / unblock / answers procedures. |
+| `SKILL.md` | The skill itself: intake steps, safe-write rules, and the summary / fit / quick / rank / promote / unblock / answers procedures. |
 | `queue-template.md` | Starting `WORK_QUEUE.md` for a project that doesn't have one yet. |
 | `batch-page-template.html` | The open-questions page: one per queue, at one link, rolled after each wave and by `/queue unblock` and `/queue questions`. Plain-language decision cards that save answers to the page; a question stays until it's answered, settled by later work, or no longer applies. Each decision card is rated 1–10 for how many users meet it and listed highest first; a not-yet-built question rated 1–5 is folded and set to the recommendation, so only 6–10 ask for an answer. |
-| `estimate.py` | Sizes entries, groups them into parallel lanes by shared files, and estimates wave hours and the share of weekly usage (Claude, or Codex with `--codex`) from past runs. Modes: plain or `--json` (summary), `--fit` (fit and quick), `--candidates` and `--promote` (promote), `--profile` (model and effort), `--splits` (could go faster). Run it with no arguments for usage; `python3 estimate.py --selftest` checks it. |
+| `estimate.py` | Sizes entries, groups them into parallel lanes by shared files, and estimates wave hours and the share of weekly usage (Claude, or Codex with `--codex`) from past runs. Modes: plain or `--json` (summary), `--fit` (fit and quick), `--only` (rank's times), `--candidates` and `--promote` (promote), `--profile` (model and effort), `--splits` (could go faster). Run it with no arguments for usage; `python3 estimate.py --selftest` checks it. |
 | `agy-models.py` | Antigravity only: lists the Gemini models the account can pick and the quota left, from the running app's local server. Promote and /wave's setting check use it. |
 | `batch-page-companion.draft.md` | Draft of a separate "publish the batch page" skill. Not loaded (it isn't named `SKILL.md`). |
 | `agents/openai.yaml` | Codex metadata: runs only when you type `$queue`. |
