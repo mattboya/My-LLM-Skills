@@ -26,6 +26,10 @@ models = status["userStatus"]["cascadeModelConfigData"]["clientModelConfigs"]
 state = open(f"{home}/antigravity_state.pbtxt").read()
 picked = re.search(r"last_selected_agent_model: (\S+)", state)
 labels = {m["modelOrAlias"].get("model"): m["label"] for m in models}
+if "--json" in sys.argv:  # for handoff/quota.py: the picked model and each Gemini model's raw quota
+    print(json.dumps({"picked": labels.get(picked and picked.group(1)), "models": [
+        {"label": m["label"], **m.get("quotaInfo", {})} for m in models if m["label"].startswith("Gemini") and not m.get("disabled")]}))
+    sys.exit()
 print("picker is on:", labels.get(picked and picked.group(1), "unknown"))
 for m in models:
     if not m["label"].startswith("Gemini") or m.get("disabled"):

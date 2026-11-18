@@ -41,6 +41,8 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
 - **Only `/wave land` pushes.** It pushes the finished wave as one branch and opens one PR, with the wave's summary as its description, so CI runs once on the whole wave. You merge it, and a second `/wave land` moves the tickets. Nothing merges for you. `/wave plan` shows the estimate (hours, and weekly usage from the planned units) and stops; `/wave auto` runs unattended, and picks up that plan; `/wave lean` skips reviews for about a third of the usage.
 - **Tests go on the cheapest layer that can fail,** because every committed test runs on every CI push. A CI browser test is only for a user path that protects data, money, access or a sent message. Layout and motion checks are red-first proofs that stay out of the commit. Each wave reports its suites' test counts and minutes before and after.
 
+- **Long jobs hand off instead of dying.** `/handoff` (and `/wave`, between its phases) checks the usage left with `quota.py`. Near 5% it finishes the chunk, writes `HANDOFF.md`, and stops, so you can open Claude, Codex or Gemini and say "continue from HANDOFF.md". When only the 5-hour limit is low and it resets within the hour, it waits instead.
+
 Each skill's README has the full command list and file guide: [queue](productivity/queue/README.md), [wave](productivity/wave/README.md).
 
 ## Repo layout
@@ -63,6 +65,10 @@ productivity/
     helpers/                commit, lock and run-cost helpers
     references/             Codex dispatch and auto-start procedures
     protocol-template.md    template for a project's ## Wave protocol
+  handoff/                  /handoff skill: stop long jobs near a usage limit, continue in another model
+    SKILL.md                when to check, how to stop, HANDOFF.md format, how to continue
+    quota.py                usage left for Claude, Codex or Antigravity, and ok / wait / handoff
+    claude-limits.sh        statusline pass-through that saves Claude's rate limits for quota.py
 gamedev/
   blender-bpy/               Blender bpy/bmesh and 3D asset optimization rules (SKILL.md only)
   rtx3090-image-to-3d/       drives the local image-to-3D server in F:\Code\ai-3d-pipeline (SKILL.md only)
@@ -74,7 +80,7 @@ docs/superpowers/plans/     implementation plans for past changes to these skill
 This repo holds the only copy of the skills. Claude Code loads skills from `~/.claude/skills/<name>/`, and Codex from `~/.agents/skills/<name>/`. Both follow symlinks, so link each skill folder into both places:
 
 ```bash
-for s in queue wave where; do
+for s in queue wave where handoff; do
   ln -sfn "$PWD/productivity/$s" ~/.claude/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.agents/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.gemini/config/skills/$s

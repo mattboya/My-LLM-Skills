@@ -151,6 +151,11 @@ Don't edit the runner per wave. A real improvement goes into the runner itself, 
 
 **If the run stops or stalls:** never `resumeFromRunId`. Its cache is a call-order prefix, so it re-runs finished reviews. Save a `git diff` of any interrupted agent's files, then relaunch with `args.seeds` = `{label: result}` for every finished agent, taken from the run's `journal.jsonl`.
 
+**Usage checks** (the `handoff` skill, `~/.agents/skills/handoff/SKILL.md`): run `python3 ~/.agents/skills/handoff/quota.py --harness <claude | codex | antigravity>` before Go, before each Workflow launch, and every 15 minutes while the lanes run (the stall watchdog's Monitor runs it too). Manual and auto runs both do this.
+- `wait <min>`: launch nothing new until a check says `ok`. A running lane run keeps going.
+- `handoff`: launch nothing new. A lane run still going is stopped (TaskStop): its committed units stay, and the interrupted agents' diffs are saved as the stall rule above says. Add `**Paused:** YYYY-MM-DD HH:MM — <window> at <n>% left, resets <time>` as the wave doc's third line. Status stays `RUNNING`, so `/wave` resumes it. Then write `HANDOFF.md` as the handoff skill says: the wave doc's path, what landed, what didn't, and "type `/wave` to continue it".
+- **Resuming a paused wave:** delete the `**Paused:**` line. In the harness that paused it, relaunch with seeds (the stall rule). In another harness, its host can't read this one's journal: reconcile from the wave doc and `git log` (a unit with its commit is done), and run the units left.
+
 ## 4. Handoff
 
 1. Each ticket gets a numbered review plan and the move the protocol's lifecycle sets for the handoff (the move it sets for the merge waits for `/wave land`). In a full run, a unit that skipped its own review (`lean` in the runner's results) opens its plan with: "Built without its own review (low risk): the cross-lane reviews and the full test suite covered it." Each ticket's technical notes also get the unit's engineering decisions (`productFlavour: false`), one line each: `question → pick, why`. Ticket clerks run as default-type agents at `effort: 'low'`; queue edits as `wave-planner`.
