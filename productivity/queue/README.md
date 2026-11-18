@@ -29,7 +29,7 @@ Because the file has no git history, every write is a "safe write": copy to scra
 /queue fit <7h | 11:30pm>         The most Ready items one /wave run finishes in that window, and the /wave line to paste. Changes nothing.
 /queue fit <window> lean          The same for a /wave lean run (test-first builders, one final check, no reviews).
 /queue quick [3h]                 Pull small fixes that share nothing (single bullets from follow-up lists too) into Ready, and hand you the /wave lean line.
-/queue rank                       Bucket the whole queue by user impact (high / medium / low / rarely), ask the Waiting items that block the top two as click-to-answer questions, move the top two into Ready, and give each bucket's time and the /wave auto lines.
+/queue rank                       Bucket the whole queue by user impact (high / medium / low / rarely), say how many Waiting items block the top two and let you answer them as click-to-answer questions or rank only what's unblocked, move the top two into Ready, and give each bucket's time and the /wave auto lines.
 /queue promote                    Move Later items that fit the next wave into Ready, list what that wave builds (one sentence each), and the model and effort to kick off /wave with.
 /queue effort                     The model and effort to kick off /wave with, for Ready as it stands. Changes nothing.
 /queue unblock                    Put the Waiting items on the open-questions page; answers move them to Ready.
