@@ -6,11 +6,12 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
 |---|---|
 | [`productivity/queue`](productivity/queue) | `/queue`: spec a fix or feature from the code into a project's `WORK_QUEUE.md`, plus summary, time-fit, quick-wins, promote, effort, unblock and stakeholder-answer commands. |
 | [`productivity/wave`](productivity/wave) | `/wave`: build everything in the queue's Ready section as one parallel, test-first, adversarially reviewed batch. |
+| [`productivity/stars`](productivity/stars) | `/stars`: check the repos you starred on GitHub against your own active repos, publish one page of ideas (why, action items, risks), and queue the ones you pick into each repo's `WORK_QUEUE.md`. |
 | [`productivity/where`](productivity/where) | `/where`: one thread's status: what it was about, whether its work shipped, and whether the thread is safe to close. |
 | [`gamedev/blender-bpy`](gamedev/blender-bpy) | Rules for fast headless Blender (`bpy`/`bmesh`) scripts and AI-mesh cleanup: no `bpy.ops` in loops, NumPy `foreach_get`/`foreach_set`, UV-safe decimation, Blender 4.1+ smoothing, one-process batching, image prep for image-to-3D, `UCX_` collision hulls. |
 | [`gamedev/rtx3090-image-to-3d`](gamedev/rtx3090-image-to-3d) | Turn a concept image into a game-ready prop (FBX/GLB, LODs, `UCX_` collision, textures) through the local image-to-3D server at `F:\Code\ai-3d-pipeline` on the RTX 3090: check the server, prep the image, submit, monitor, verify. Set up for one PC; see [on another computer](#rtx3090-image-to-3d-on-another-computer). |
 
-`/queue` and `/wave` are manual-only: they run when you type them, never on their own. `/where` is read-only, so it also runs when you ask where a thread stands. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup. `rtx3090-image-to-3d` loads on its own when you ask for a 3D model from an image; it needs the pipeline's server running (`start_server.bat`), and the skill starts it if it is down.
+`/queue`, `/wave` and `/stars` are manual-only: they run when you type them, never on their own. `/where` is read-only, so it also runs when you ask where a thread stands. `blender-bpy` is reference rules, and loads on its own when a task involves Blender scripting or 3D asset cleanup. `rtx3090-image-to-3d` loads on its own when you ask for a 3D model from an image; it needs the pipeline's server running (`start_server.bat`), and the skill starts it if it is down.
 
 ## How the two fit together
 
@@ -43,6 +44,8 @@ Skills I've written for Claude Code and Codex, grouped by area. In Codex, type `
 
 - **Long jobs hand off instead of dying.** `/handoff` (and `/wave`, between its phases) checks the usage left with `quota.py`. Near 5% it finishes the chunk, writes `HANDOFF.md`, and stops, so you can open Claude, Codex or Gemini and say "continue from HANDOFF.md". When only the 5-hour limit is low and it resets within the hour, it waits instead.
 
+**`/stars` feeds the queue from outside.** It reads what you starred on GitHub, matches it to your repos (owned, not forks, pushed in the last 12 months), and has one agent per repo check each match against the code: only a gap it can point at with `file:line` becomes an idea. The ideas go on one picks page, at one link. You pick Ready, Later or Not interested on each card, and `/stars apply` writes the picks into each repo's `WORK_QUEUE.md` by `/queue`'s rules. Repos with no local clone wait in an inbox. Its state lives in `~/.agents/stars/`, so later runs check only new stars and changed repos.
+
 Each skill's README has the full command list and file guide: [queue](productivity/queue/README.md), [wave](productivity/wave/README.md).
 
 ## Repo layout
@@ -65,6 +68,11 @@ productivity/
     helpers/                commit, lock and run-cost helpers
     references/             Codex dispatch and auto-start procedures
     protocol-template.md    template for a project's ## Wave protocol
+  stars/                    /stars skill
+    SKILL.md                the skill (run, deep-check brief, apply through /queue's rules)
+    stars.py                fetch, clones, profiles, shortlist, state, page render, picks (--selftest)
+    page-template.html      the picks page
+    agents/openai.yaml      Codex: run only when typed
   handoff/                  /handoff skill: stop long jobs near a usage limit, continue in another model
     SKILL.md                when to check, how to stop, HANDOFF.md format, how to continue
     quota.py                usage left for Claude, Codex or Antigravity, and ok / wait / handoff
@@ -80,7 +88,7 @@ docs/superpowers/plans/     implementation plans for past changes to these skill
 This repo holds the only copy of the skills. Claude Code loads skills from `~/.claude/skills/<name>/`, and Codex from `~/.agents/skills/<name>/`. Both follow symlinks, so link each skill folder into both places:
 
 ```bash
-for s in queue wave where handoff; do
+for s in queue wave where handoff stars; do
   ln -sfn "$PWD/productivity/$s" ~/.claude/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.agents/skills/$s
   ln -sfn "$PWD/productivity/$s" ~/.gemini/config/skills/$s
@@ -128,7 +136,7 @@ Using the 3090 from another computer over the network is not set up. The server 
 ## Requirements
 
 - Claude Code (with the Workflow tool for `/wave`), Codex with native subagent tools, or Antigravity with the `run_workflow` tool.
-- `python3`, `node`, `git`, `bash` and `perl`, plus `gh` for `/wave land`.
+- `python3`, `node`, `git`, `bash` and `perl`, plus `gh` for `/wave land` and `/stars` (logged in with `gh auth login`).
 - Stakeholder pages that save answers need Claude's Artifact tools. In Codex the page is a local file, and people paste their answers back.
 
 ## Checks
@@ -141,6 +149,10 @@ python3 productivity/queue/estimate.py --selftest
 
 ```bash
 python3 productivity/wave/helpers/codex-usage.py --selftest
+```
+
+```bash
+python3 productivity/stars/stars.py --selftest
 ```
 
 ```bash

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<!--
+  /stars PICKS PAGE: one per user, at one link. `stars.py render` fills the double-brace slots (the cards
+  come from the state, so never edit them by hand), and /stars republishes it at the same link each run.
+  Keep the ids s-save, s-copy, s-clear, s-count, s-status, s-out, s-mode, s-saved and the script as they are.
+  Publish privately, icon "star", with these capabilities (an update keeps them):
+    {"db": {"rules": [{"path": "picks", "read": "view", "write": "admin"},
+                      {"path": "picks/{self}", "write": "interact"}]},
+     "user": {"scopes": ["profile"]}}
+  Each viewer's picks save to picks/<their id> as {S12: {pick: "ready" | "later" | "no" | "", note, at}, ...}.
+  Opened as a local file (Codex, Antigravity), picks stay in the browser, and "Copy my picks" gives the text
+  that `/stars apply <pasted>` reads.
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+:root{--ground:#f5f6f2;--panel:#ffffff;--ink:#1b2230;--muted:#5a6272;--rule:#dde0d8;--accent:#0e6e67;--accent-soft:#e2f0ee;--amber:#a85a09;--amber-soft:#f8ecd9;--brick:#b3261e;--brick-soft:#f9e3e1;--code:#eef0ea;--on-accent:#ffffff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#12161d;--panel:#1a1f28;--ink:#e6e8ec;--muted:#a1a8b5;--rule:#2c333f;--accent:#4cc3b6;--accent-soft:#16312f;--amber:#e6a553;--amber-soft:#35291a;--brick:#f08a82;--brick-soft:#3a1f1d;--code:#232a35;--on-accent:#0b1512;color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#12161d;--panel:#1a1f28;--ink:#e6e8ec;--muted:#a1a8b5;--rule:#2c333f;--accent:#4cc3b6;--accent-soft:#16312f;--amber:#e6a553;--amber-soft:#35291a;--brick:#f08a82;--brick-soft:#3a1f1d;--code:#232a35;--on-accent:#0b1512;color-scheme:dark}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.6 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding-inline:20px;padding-block:40px 80px}
+h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;text-wrap:balance;line-height:1.2}
+h1{font-size:40px;font-weight:800;letter-spacing:-.02em;margin:4px 0 10px}
+h2{font-size:23px;font-weight:700;margin:44px 0 6px;padding-top:16px;border-top:2px solid var(--ink);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+h2 a{color:inherit;text-decoration:none}
+h2 a:hover{text-decoration:underline}
+p,li{max-width:72ch}
+code{font:13px "IBM Plex Mono",ui-monospace,monospace;background:var(--code);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+a{color:var(--accent)}
+a:focus-visible,summary:focus-visible,button:focus-visible,.sopt input:focus-visible,.snotebox:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:500 12px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0}
+.meta{color:var(--muted);font-size:13px;margin:0}
+.lede{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin:26px 0 0}
+.stat{background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.num{font:800 28px Archivo,sans-serif;font-variant-numeric:tabular-nums}
+.lbl{font-size:12.5px;color:var(--muted);line-height:1.35}
+.rcount{font:500 12.5px "IBM Plex Mono",monospace;color:var(--muted)}
+.qbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:10px 12px;margin:14px 0}
+.qbar button{font:600 13px "IBM Plex Sans",sans-serif;padding:7px 12px;border-radius:4px;border:1px solid var(--rule);background:var(--ground);color:var(--ink);cursor:pointer}
+.qbar button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+#s-count{font:500 12.5px "IBM Plex Mono",monospace;color:var(--muted)}
+#s-saved{margin-left:auto}
+.qmode{font-size:13.5px;color:var(--muted);margin:6px 0}
+.qstatus{color:var(--accent);font-size:13.5px;margin:4px 0;min-height:1.2em}
+.qout{width:100%;font:13px "IBM Plex Mono",monospace;background:var(--code);color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:8px;box-sizing:border-box}
+.scard{border:1px solid var(--rule);border-radius:6px;background:var(--panel);padding:14px 16px 16px;margin:14px 0;min-width:0}
+.scard.decided{border-color:var(--accent)}
+.scard.dropped{opacity:.72}
+.scard legend{display:flex;gap:10px;align-items:baseline;padding:0 6px;font:700 16.5px/1.35 Archivo,sans-serif;max-width:100%}
+.snum{font:600 12px "IBM Plex Mono",monospace;background:var(--ink);color:var(--ground);padding:2px 7px;border-radius:3px;flex:none}
+.smeta{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--muted);margin:6px 0 4px}
+.tag{font:600 11px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:3px;background:var(--amber-soft);color:var(--amber)}
+.val{font:600 11px "IBM Plex Mono",monospace;padding:2px 7px;border-radius:3px;background:var(--code);color:var(--ink);white-space:nowrap}
+.scard p{margin:8px 0}
+.acth{margin-bottom:2px}
+.acts{margin:4px 0 8px;padding-left:22px}
+.acts li{margin:4px 0}
+.srisk{font-size:14px}
+.eng{margin-top:10px;border-top:1px solid var(--rule);padding-top:8px}
+.eng summary{cursor:pointer;font:600 12.5px "IBM Plex Mono",monospace;color:var(--muted)}
+.eng ul{font-size:13.5px;padding-left:20px}
+.sopts{display:grid;gap:8px;margin:12px 0 8px}
+.sopt{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;border:1px solid var(--rule);border-radius:5px;padding:10px 12px;cursor:pointer;background:var(--ground)}
+.sopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.sopt input{margin-top:3px;accent-color:var(--accent)}
+.ot{display:flex;flex-direction:column;gap:2px}
+.eff{color:var(--muted);font-size:14px}
+.snote{display:block;font:600 11.5px "IBM Plex Sans",sans-serif;color:var(--muted);margin-top:8px}
+.snotebox{width:100%;box-sizing:border-box;font:14px "IBM Plex Sans",sans-serif;border:1px solid var(--rule);border-radius:4px;padding:7px 9px;background:var(--ground);color:var(--ink);margin-top:4px}
+.sfold{margin:14px 0}
+.sfold>summary{cursor:pointer;font:600 14px "IBM Plex Sans",sans-serif;color:var(--muted);padding:6px 0}
+.eid{font:600 13px "IBM Plex Mono",monospace;color:var(--accent)}
+.plain li{margin:8px 0}
+footer{margin-top:56px;color:var(--muted);font-size:13px;border-top:1px solid var(--rule);padding-top:14px}
+@media (max-width:640px){h1{font-size:31px}}
+</style>
+</head>
+<body>
+<main class="wrap" id="page" data-page="{{PAGE_KEY}}">
+{{CONTENT}}
+</main>
+<script>
+(function(){
+  var cards=[].slice.call(document.querySelectorAll('fieldset.scard'));
+  if(!cards.length) return;
+  function $(id){ return document.getElementById(id); }
+  var page=$('page').dataset.page||'stars', KEY=page+'-picks';
+  var count=$('s-count'), status=$('s-status'), out=$('s-out'), mode=$('s-mode'), savedLine=$('s-saved');
+  var db=null, me=null, sent={}, timer=null, chain=Promise.resolve(), first=true, lastErr='';
+  function card(id){ return document.querySelector('fieldset.scard[data-s="'+id+'"]'); }
+  function picked(f){ var r=f.querySelector('input[type=radio]:checked'); return r?r.value:''; }
+  function note(f){ return f.querySelector('textarea.snotebox').value.trim(); }
+  function read(){ return cards.map(function(f){ return {id:f.dataset.s, repo:f.dataset.repo, title:f.dataset.title, pick:picked(f), note:note(f)}; }); }
+  function asMap(){ var m={}; read().forEach(function(a){ if(a.pick||a.note) m[a.id]={pick:a.pick, note:a.note}; }); return m; }
+  function apply(map){ Object.keys(map||{}).forEach(function(id){ var a=map[id], f=card(id); if(!f||!a) return;
+    [].forEach.call(f.querySelectorAll('input[type=radio]'), function(r){ r.checked=(r.value===a.pick); });
+    f.querySelector('textarea.snotebox').value=a.note||''; }); }
+  function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(asMap())); }catch(e){} }
+  function loadLocal(){ try{ apply(JSON.parse(localStorage.getItem(KEY)||'{}')); }catch(e){} }
+  function tally(){ var s=read(), t={all:s.length, done:0, ready:0, later:0, no:0}; s.forEach(function(a){ if(a.pick){ t.done++; t[a.pick]++; } }); return t; }
+  function refresh(){ var t=tally();
+    count.textContent=t.done+' of '+t.all+' decided'+(t.done?' · '+t.ready+' Ready · '+t.later+' Later · '+t.no+' not interested':'');
+    cards.forEach(function(f){ var p=picked(f); f.dataset.was=p; f.classList.toggle('decided', !!p); f.classList.toggle('dropped', p==='no');
+      /* A folded small idea opens itself when it holds a pick or a note; it never closes one the reader opened. */
+      var d=f.closest('details.sfold'); if(d&&(p||note(f))) d.open=true; });
+    [].forEach.call(document.querySelectorAll('section.repo'), function(sec){ var cs=sec.querySelectorAll('fieldset.scard'), d=0;
+      [].forEach.call(cs, function(f){ if(picked(f)) d++; }); var el=sec.querySelector('.rcount'); if(el) el.textContent=d+' of '+cs.length+' decided'; }); }
+  function setMode(m){ mode.textContent = m==='shared' ? 'Your picks save to this page as you go.'
+    : m==='retry' ? 'Couldn’t save to the page just now. Your picks are kept in this browser: press Save my picks again in a moment, or use Copy my picks.'
+    : 'Your picks stay in this browser. When you’re done, press Copy my picks and paste them after /stars apply.'; }
+  function stamp(){ try{ return new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }catch(e){ return 'just now'; } }
+  function body(){ var b={}, now=new Date().toISOString(); read().forEach(function(a){ if(!a.pick&&!a.note) return; var p=sent[a.id], same=p&&p.pick===a.pick&&p.note===a.note; b[a.id]={pick:a.pick, note:a.note, at:same?p.at:now}; }); return b; }
+  function write(){ if(!db||!me) return Promise.resolve(false); var b=body();
+    return db.doc('picks/'+me).set(b).then(function(){ sent=b; lastErr=''; setMode('shared'); savedLine.textContent='Saved at '+stamp()+'.'; return true; },
+      function(e){ var c=(e&&e.code)||'unavailable'; lastErr=c; if(c==='unavailable'){ setMode('retry'); } else { db=null; setMode('local'); } savedLine.textContent='Not saved.'; return false; }); }
+  function push(){ if(!db||!me) return; clearTimeout(timer); timer=setTimeout(function(){ chain=chain.then(write); }, 700); }
+  function saveNow(){ clearTimeout(timer); chain=chain.then(write); return chain; }
+  function changed(){ saveLocal(); refresh(); push(); }
+  document.addEventListener('change', function(ev){ if(ev.target.closest&&ev.target.closest('fieldset.scard')) changed(); });
+  document.addEventListener('input', function(ev){ if(ev.target.classList&&ev.target.classList.contains('snotebox')) changed(); });
+  /* Clicking the picked option again clears it: the card goes back to undecided. */
+  document.addEventListener('click', function(ev){ var t=ev.target; if(!t||t.type!=='radio') return; var f=t.closest('fieldset.scard'); if(f&&f.dataset.was===t.value){ t.checked=false; changed(); } });
+  document.addEventListener('keydown', function(ev){ var t=ev.target; if(ev.key!==' '||!t||t.type!=='radio'||!t.checked) return; if(t.closest('fieldset.scard')){ ev.preventDefault(); t.checked=false; changed(); } });
+  $('s-save').addEventListener('click', function(){ changed(); status.textContent='Saving…';
+    saveNow().then(function(ok){ var t=tally();
+      status.textContent = ok ? 'Saved at '+stamp()+': '+t.done+' of '+t.all+' decided. Type /stars apply to queue them. You can close this page.'
+        : lastErr==='unavailable' ? 'Not saved: the page couldn’t reach its storage just now. Press Save my picks again in a moment, or use Copy my picks.'
+        : 'This copy of the page can’t store picks (view-only, or opened as a file). Press Copy my picks and paste them after /stars apply.'; }); });
+  function text(){ var lines=['Picks for "'+document.title+'" (page '+page+'):'], open=[];
+    read().forEach(function(a){ if(!a.pick&&!a.note){ open.push(a.id); return; }
+      lines.push(a.id+' ['+a.repo+'] — '+a.title+': '+(a.pick||'note only')); if(a.note) lines.push('   Note: '+a.note.replace(/\s*\n\s*/g,' ')); });
+    if(open.length) lines.push('Still open: '+open.join(', ')); return lines.join('\n'); }
+  $('s-copy').addEventListener('click', function(){ var t=text(); out.value=t; out.hidden=false;
+    function fallback(){ out.focus(); out.select(); status.textContent='Your picks are selected below. Copy them (Cmd+C or Ctrl+C), then type /stars apply and paste them after it.'; }
+    try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ status.textContent='Copied. Type /stars apply and paste them after it.'; }, fallback); } else { fallback(); } }catch(e){ fallback(); } });
+  $('s-clear').addEventListener('click', function(){ cards.forEach(function(f){ [].forEach.call(f.querySelectorAll('input[type=radio]'), function(r){ r.checked=false; }); f.querySelector('textarea.snotebox').value=''; });
+    changed(); out.hidden=true; status.textContent='Reset: every card is undecided again.'; });
+  loadLocal(); refresh(); setMode('local');
+  var c=window.claude;
+  if(c&&c.use){ Promise.all([c.use('db'), c.use('user')]).then(function(r){ db=r[0]; var u=r[1]; if(!db||!u){ db=null; return; }
+    return u.id().then(function(id){ if(!id){ db=null; return; } me=id; setMode('shared');
+      db.collection('picks').onSnapshot(function(snap){ if(!first) return; first=false;
+        snap.docs.forEach(function(d){ if(d.exists&&d.id===me){ var b=d.data()||{}; sent=b; apply(b); saveLocal(); refresh(); savedLine.textContent='Your saved picks are loaded.'; } }); },
+        function(){ db=null; setMode('local'); });
+      if(Object.keys(asMap()).length) push(); }); }, function(){ db=null; }); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stars"
+  short_description: "Match your GitHub stars to your repos, queue the picks"
+policy:
+  allow_implicit_invocation: false
